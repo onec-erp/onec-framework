@@ -26,7 +26,9 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     throw new Error(message);
   }
   if (res.status === 204) return undefined as T;
-  return res.json();
+  const text = await res.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text);
 }
 
 // Config & theme

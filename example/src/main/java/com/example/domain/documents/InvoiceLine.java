@@ -2,6 +2,7 @@ package com.example.domain.documents;
 
 import com.example.domain.catalogs.Product;
 import com.onec.annotations.Attribute;
+import com.onec.annotations.UiHint;
 import com.onec.model.TabularSectionRow;
 import com.onec.types.Ref;
 
@@ -24,5 +25,6 @@ public class InvoiceLine extends TabularSectionRow {
     private BigDecimal price;
 
     @Attribute(precision = 15, scale = 2)
+    @UiHint(order = 3, visibleInForm = false)
     private BigDecimal amount;
 }

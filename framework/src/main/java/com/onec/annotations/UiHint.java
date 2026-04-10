@@ -14,4 +14,10 @@ public @interface UiHint {
     int order() default 0;
     String group() default "";
     String width() default "";
+
+    /**
+     * Controls the input widget rendered in the form.
+     * Values: "" (default input), "textarea", "richtext"
+     */
+    String widget() default "";
 }

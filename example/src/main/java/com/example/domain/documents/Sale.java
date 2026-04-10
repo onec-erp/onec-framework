@@ -50,7 +50,9 @@ public class Sale extends DocumentObject implements BeforeWriteHandler, Postable
     public void beforeWrite() {
         BigDecimal sum = BigDecimal.ZERO;
         for (SaleLine line : items) {
-            BigDecimal amt = line.getQuantity().multiply(line.getPrice());
+            BigDecimal qty = line.getQuantity() != null ? line.getQuantity() : BigDecimal.ZERO;
+            BigDecimal price = line.getPrice() != null ? line.getPrice() : BigDecimal.ZERO;
+            BigDecimal amt = qty.multiply(price);
             line.setAmount(amt);
             sum = sum.add(amt);
         }

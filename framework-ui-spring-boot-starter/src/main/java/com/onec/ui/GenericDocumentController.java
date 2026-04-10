@@ -10,6 +10,7 @@ import com.onec.posting.PostingService;
 import com.onec.types.Ref;
 
 import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.statement.Update;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -45,12 +46,9 @@ public class GenericDocumentController {
                                            @RequestParam(required = false) String from,
                                            @RequestParam(required = false) String to) {
         DocumentDescriptor desc = findDocument(name);
-        StringBuilder sql = new StringBuilder("SELECT * FROM " + desc.tableName());
-        if (from != null || to != null) {
-            sql.append(" WHERE 1=1");
-            if (from != null) sql.append(" AND _date >= :from");
-            if (to != null) sql.append(" AND _date <= :to");
-        }
+        StringBuilder sql = new StringBuilder("SELECT * FROM " + desc.tableName() + " WHERE _deletion_mark = false");
+        if (from != null) sql.append(" AND _date >= :from");
+        if (to != null) sql.append(" AND _date <= :to");
         sql.append(" ORDER BY _date DESC");
 
         List<Map<String, Object>> rows = jdbi.withHandle(h -> {
@@ -114,17 +112,16 @@ public class GenericDocumentController {
             var update = h.createUpdate(sql)
                     .bind("_id", id)
                     .bind("_number", body.getOrDefault("number", ""))
-                    .bind("_date", body.getOrDefault("date", java.time.LocalDateTime.now().toString()))
+                    .bind("_date", body.getOrDefault("date", LocalDateTime.now().toString()))
                     .bind("_posted", false)
                     .bind("_deletion_mark", false);
 
             for (AttributeDescriptor attr : desc.attributes()) {
-                update.bind(attr.columnName(), body.get(attr.fieldName()));
+                bindAttribute(update, attr, body.get(attr.fieldName()));
             }
             update.execute();
         });
 
-        // Insert tabular section rows
         insertTabularSections(desc, id, body);
 
         return get(name, id);
@@ -158,7 +155,7 @@ public class GenericDocumentController {
 
                 for (AttributeDescriptor attr : desc.attributes()) {
                     if (body.containsKey(attr.fieldName())) {
-                        update.bind(attr.columnName(), body.get(attr.fieldName()));
+                        bindAttribute(update, attr, body.get(attr.fieldName()));
                     }
                 }
                 update.execute();
@@ -307,6 +304,21 @@ public class GenericDocumentController {
             field.set(target, value instanceof LocalDateTime ldt ? ldt : LocalDateTime.parse(value.toString()));
         } else if (fieldType == UUID.class) {
             field.set(target, value instanceof UUID u ? u : UUID.fromString(value.toString()));
+        } else if (fieldType.isEnum()) {
+            UUID enumId = value instanceof UUID u ? u : UUID.fromString(value.toString());
+            var enumDesc = registry.allEnumerations().stream()
+                    .filter(e -> e.javaClass().equals(fieldType))
+                    .findFirst().orElse(null);
+            if (enumDesc != null) {
+                enumDesc.values().stream()
+                        .filter(v -> v.id().equals(enumId))
+                        .findFirst()
+                        .ifPresent(v -> {
+                            try {
+                                field.set(target, Enum.valueOf((Class<Enum>) fieldType, v.name()));
+                            } catch (Exception ignored) {}
+                        });
+            }
         } else {
             field.set(target, value);
         }
@@ -328,6 +340,20 @@ public class GenericDocumentController {
     public void delete(@PathVariable String name, @PathVariable UUID id) {
         requireWritable();
         DocumentDescriptor desc = findDocument(name);
+
+        // Unpost first if posted
+        Map<String, Object> row = jdbi.withHandle(h ->
+                h.createQuery("SELECT _posted FROM " + desc.tableName() + " WHERE _id = :id")
+                        .bind("id", id)
+                        .mapToMap()
+                        .findOne()
+                        .orElse(null)
+        );
+        if (row != null && Boolean.TRUE.equals(row.get("_posted"))) {
+            DocumentObject doc = loadDocumentObject(desc, id);
+            postingService.unpost(doc);
+        }
+
         jdbi.useHandle(h ->
                 h.createUpdate("UPDATE " + desc.tableName() + " SET _deletion_mark = true WHERE _id = :id")
                         .bind("id", id)
@@ -366,12 +392,31 @@ public class GenericDocumentController {
                             .bind("_line_number", ln);
 
                     for (AttributeDescriptor attr : ts.attributes()) {
-                        update.bind(attr.columnName(), typedRow.get(attr.fieldName()));
+                        bindAttribute(update, attr, typedRow.get(attr.fieldName()));
                     }
                     update.execute();
                 });
                 lineNumber++;
             }
+        }
+    }
+
+    /**
+     * Properly converts and binds an attribute value, handling Ref UUIDs and enums.
+     */
+    private void bindAttribute(Update update, AttributeDescriptor attr, Object value) {
+        if (value == null || "".equals(value)) {
+            update.bind(attr.columnName(), (UUID) null);
+            return;
+        }
+        if (attr.isRef() || attr.javaType().isEnum()) {
+            // Ref and enum columns are UUID in the DB
+            UUID uuid = value instanceof UUID u ? u : UUID.fromString(value.toString());
+            update.bind(attr.columnName(), uuid);
+        } else if (attr.javaType() == BigDecimal.class) {
+            update.bind(attr.columnName(), value instanceof BigDecimal bd ? bd : new BigDecimal(value.toString()));
+        } else {
+            update.bind(attr.columnName(), value);
         }
     }
 

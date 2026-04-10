@@ -127,6 +127,7 @@ public class MetadataApiController {
             map.put("order", a.order());
             map.put("group", a.group());
             map.put("widthHint", a.widthHint());
+            map.put("widget", a.widget());
             boolean isEnum = a.javaType().isEnum();
             map.put("isEnum", isEnum);
             if (isEnum) {

@@ -9,7 +9,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
-@Catalog(name = "Warehouses", codeLength = 5)
+@Catalog(name = "Warehouses", codeLength = 25)
 @UiSection(value = "Warehouse", order = 1)
 @Getter
 @Setter

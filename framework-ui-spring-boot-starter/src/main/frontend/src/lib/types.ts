@@ -23,6 +23,7 @@ export interface AttributeMeta {
   order: number;
   group: string;
   widthHint: string;
+  widget: string;
 }
 
 export interface TabularSectionMeta {

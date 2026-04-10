@@ -190,7 +190,7 @@ export function CatalogListView() {
           </DialogHeader>
           <EntityForm
             baseFields={[
-              { label: "Code", key: "code" },
+              { label: "Code", key: "code", maxLength: meta.codeLength },
               { label: "Description", key: "description" },
             ]}
             attributes={meta.attributes}

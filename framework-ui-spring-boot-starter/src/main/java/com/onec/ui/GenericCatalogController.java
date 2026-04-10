@@ -5,10 +5,12 @@ import com.onec.metadata.CatalogDescriptor;
 import com.onec.metadata.MetadataRegistry;
 
 import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.statement.Update;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.*;
 
 @RestController
@@ -31,7 +33,7 @@ public class GenericCatalogController {
     public List<Map<String, Object>> list(@PathVariable String name) {
         CatalogDescriptor desc = findCatalog(name);
         List<Map<String, Object>> rows = jdbi.withHandle(h ->
-                h.createQuery("SELECT * FROM " + desc.tableName())
+                h.createQuery("SELECT * FROM " + desc.tableName() + " WHERE _deletion_mark = false")
                         .mapToMap()
                         .list()
         );
@@ -79,7 +81,7 @@ public class GenericCatalogController {
                     .bind("_deletion_mark", false);
 
             for (AttributeDescriptor attr : desc.attributes()) {
-                update.bind(attr.columnName(), body.get(attr.fieldName()));
+                bindAttribute(update, attr, body.get(attr.fieldName()));
             }
             update.execute();
         });
@@ -145,6 +147,21 @@ public class GenericCatalogController {
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Catalog not found: " + name));
+    }
+
+    private void bindAttribute(Update update, AttributeDescriptor attr, Object value) {
+        if (value == null || "".equals(value)) {
+            update.bind(attr.columnName(), (UUID) null);
+            return;
+        }
+        if (attr.isRef() || attr.javaType().isEnum()) {
+            UUID uuid = value instanceof UUID u ? u : UUID.fromString(value.toString());
+            update.bind(attr.columnName(), uuid);
+        } else if (attr.javaType() == BigDecimal.class) {
+            update.bind(attr.columnName(), value instanceof BigDecimal bd ? bd : new BigDecimal(value.toString()));
+        } else {
+            update.bind(attr.columnName(), value);
+        }
     }
 
     private void requireWritable() {

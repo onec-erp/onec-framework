@@ -16,6 +16,7 @@ public record AttributeDescriptor(
         boolean visibleInDetail,
         int order,
         String group,
-        String widthHint
+        String widthHint,
+        String widget
 ) {
 }

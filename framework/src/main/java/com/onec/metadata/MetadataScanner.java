@@ -223,7 +223,8 @@ public class MetadataScanner {
                         hint == null || hint.visibleInDetail(),
                         hint == null ? 0 : hint.order(),
                         hint == null ? "" : hint.group(),
-                        hint == null ? "" : hint.width()));
+                        hint == null ? "" : hint.width(),
+                        hint == null ? "" : hint.widget()));
             }
             current = current.getSuperclass();
         }
@@ -254,7 +255,8 @@ public class MetadataScanner {
                         hint == null || hint.visibleInDetail(),
                         hint == null ? 0 : hint.order(),
                         hint == null ? "" : hint.group(),
-                        hint == null ? "" : hint.width()));
+                        hint == null ? "" : hint.width(),
+                        hint == null ? "" : hint.widget()));
             }
             current = current.getSuperclass();
         }
@@ -299,7 +301,8 @@ public class MetadataScanner {
                         hint == null || hint.visibleInDetail(),
                         hint == null ? 0 : hint.order(),
                         hint == null ? "" : hint.group(),
-                        hint == null ? "" : hint.width()
+                        hint == null ? "" : hint.width(),
+                        hint == null ? "" : hint.widget()
                 ));
             }
             current = current.getSuperclass();

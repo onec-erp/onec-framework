@@ -40,7 +40,9 @@ public class Invoice extends DocumentObject implements BeforeWriteHandler, Posta
     public void beforeWrite() {
         BigDecimal sum = BigDecimal.ZERO;
         for (InvoiceLine line : items) {
-            BigDecimal amount = line.getQuantity().multiply(line.getPrice());
+            BigDecimal qty = line.getQuantity() != null ? line.getQuantity() : BigDecimal.ZERO;
+            BigDecimal price = line.getPrice() != null ? line.getPrice() : BigDecimal.ZERO;
+            BigDecimal amount = qty.multiply(price);
             line.setAmount(amount);
             sum = sum.add(amount);
         }

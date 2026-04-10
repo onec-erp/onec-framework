@@ -47,7 +47,9 @@ public class GoodsReceipt extends DocumentObject implements BeforeWriteHandler, 
     public void beforeWrite() {
         BigDecimal sum = BigDecimal.ZERO;
         for (GoodsReceiptLine line : items) {
-            BigDecimal cost = line.getQuantity().multiply(line.getUnitCost());
+            BigDecimal qty = line.getQuantity() != null ? line.getQuantity() : BigDecimal.ZERO;
+            BigDecimal uc = line.getUnitCost() != null ? line.getUnitCost() : BigDecimal.ZERO;
+            BigDecimal cost = qty.multiply(uc);
             line.setTotalCost(cost);
             sum = sum.add(cost);
         }

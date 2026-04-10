@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { Pencil } from "lucide-react";
 import { api } from "@/lib/api";
 import { toSnakeCase, displayValue } from "@/lib/utils";
 import type { DocumentMeta, EntityRecord } from "@/lib/types";
@@ -16,20 +17,34 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { PageHeader } from "@/components/page-header";
+import { EntityForm } from "@/components/entity-form";
 
 export function DocumentDetailView() {
   const { name, id } = useParams<{ name: string; id: string }>();
   const navigate = useNavigate();
   const [meta, setMeta] = useState<DocumentMeta | null>(null);
   const [doc, setDoc] = useState<EntityRecord | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const reload = () => {
+    if (!name || !id) return;
+    api.getDocument(name, id).then(setDoc);
+  };
 
   useEffect(() => {
     if (!name || !id) return;
     api.getDocuments().then((all) => {
       setMeta(all.find((d) => toSnakeCase(d.name) === name) ?? null);
     });
-    api.getDocument(name, id).then(setDoc);
+    reload();
   }, [name, id]);
 
   const detailAttrs = useMemo(
@@ -40,13 +55,27 @@ export function DocumentDetailView() {
   const handlePost = async () => {
     if (!name || !id) return;
     await api.postDocument(name, id);
-    api.getDocument(name, id).then(setDoc);
+    reload();
   };
 
   const handleUnpost = async () => {
     if (!name || !id) return;
     await api.unpostDocument(name, id);
-    api.getDocument(name, id).then(setDoc);
+    reload();
+  };
+
+  const handleUpdate = async (data: EntityRecord, andPost?: boolean) => {
+    if (!name || !id) return;
+    // If doc was posted, unpost first
+    if (doc?._posted) {
+      await api.unpostDocument(name, id);
+    }
+    await api.updateDocument(name, id, data);
+    if (andPost) {
+      await api.postDocument(name, id);
+    }
+    setEditOpen(false);
+    reload();
   };
 
   if (!meta || !doc) {
@@ -90,15 +119,21 @@ export function DocumentDetailView() {
           </Badge>
         }
         actions={
-          doc._posted ? (
-            <Button variant="outline" size="sm" onClick={handleUnpost}>
-              Unpost
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+              <Pencil className="h-3.5 w-3.5 mr-1.5" />
+              Edit
             </Button>
-          ) : (
-            <Button size="sm" onClick={handlePost}>
-              Post
-            </Button>
-          )
+            {doc._posted ? (
+              <Button variant="outline" size="sm" onClick={handleUnpost}>
+                Unpost
+              </Button>
+            ) : (
+              <Button size="sm" onClick={handlePost}>
+                Post
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -183,6 +218,43 @@ export function DocumentDetailView() {
           </Tabs>
         </div>
       )}
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className={meta.tabularSections.length > 0 ? "max-w-4xl max-h-[90vh] overflow-y-auto" : undefined}>
+          <DialogHeader>
+            <DialogTitle>Edit {meta.name} #{doc._number as string}</DialogTitle>
+            <DialogDescription>Update the document fields below.</DialogDescription>
+          </DialogHeader>
+          <EntityForm
+            baseFields={[
+              { label: "Number", key: "number" },
+              { label: "Date", key: "date", type: "datetime-local" },
+            ]}
+            attributes={meta.attributes}
+            tabularSections={meta.tabularSections}
+            initial={{
+              number: doc._number,
+              date: doc._date,
+              ...Object.fromEntries(
+                meta.attributes.map((a) => [a.fieldName, doc[a.columnName]])
+              ),
+              ...Object.fromEntries(
+                meta.tabularSections.map((ts) => {
+                  const rows = (doc[ts.name] as EntityRecord[]) ?? [];
+                  return [ts.name, rows.map((row) =>
+                    Object.fromEntries(
+                      ts.attributes.map((a) => [a.fieldName, row[a.columnName]])
+                    )
+                  )];
+                })
+              ),
+            }}
+            onSubmit={handleUpdate}
+            showSaveAndPost
+            onCancel={() => setEditOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

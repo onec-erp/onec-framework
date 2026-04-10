@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, lazy, Suspense } from "react";
 import type { AttributeMeta, TabularSectionMeta, EntityRecord } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -17,9 +18,19 @@ import { DatePicker } from "@/components/date-picker";
 import { TabularSectionEditor } from "@/components/tabular-section-editor";
 import { useWidgetRegistry } from "@/providers/widget-registry";
 
+const RichTextEditor = lazy(() =>
+  import("@/components/rich-text-editor").then((m) => ({ default: m.RichTextEditor }))
+);
+const GeoPicker = lazy(() =>
+  import("@/components/geo-picker").then((m) => ({ default: m.GeoPicker }))
+);
+const GeoShapeEditor = lazy(() =>
+  import("@/components/geo-shape-editor").then((m) => ({ default: m.GeoShapeEditor }))
+);
+
 interface EntityFormProps {
   attributes: AttributeMeta[];
-  baseFields?: { label: string; key: string; type?: string }[];
+  baseFields?: { label: string; key: string; type?: string; maxLength?: number }[];
   tabularSections?: TabularSectionMeta[];
   initial?: EntityRecord;
   onSubmit: (data: EntityRecord, andPost?: boolean) => void;
@@ -108,6 +119,76 @@ export function EntityForm({
             value={data[attr.fieldName]}
             onChange={(v) => set(attr.fieldName, v)}
           />
+        </div>
+      );
+    }
+
+    if (attr.widget === "textarea") {
+      return (
+        <div key={attr.fieldName} className={`grid gap-2 ${wc || "md:col-span-2"}`}>
+          <Label htmlFor={attr.fieldName}>
+            {attr.displayName}
+            {attr.required && <span className="text-destructive ml-1">*</span>}
+          </Label>
+          <Textarea
+            id={attr.fieldName}
+            rows={4}
+            maxLength={attr.length > 0 ? attr.length : undefined}
+            required={attr.required}
+            value={(data[attr.fieldName] as string) ?? ""}
+            onChange={(e) => set(attr.fieldName, e.target.value)}
+          />
+        </div>
+      );
+    }
+
+    if (attr.widget === "richtext") {
+      return (
+        <div key={attr.fieldName} className={`grid gap-2 ${wc || "md:col-span-2"}`}>
+          <Label htmlFor={attr.fieldName}>
+            {attr.displayName}
+            {attr.required && <span className="text-destructive ml-1">*</span>}
+          </Label>
+          <Suspense fallback={<div className="h-[120px] rounded-md border bg-muted animate-pulse" />}>
+            <RichTextEditor
+              value={(data[attr.fieldName] as string) ?? ""}
+              onChange={(html) => set(attr.fieldName, html)}
+            />
+          </Suspense>
+        </div>
+      );
+    }
+
+    if (attr.widget === "geolocation") {
+      return (
+        <div key={attr.fieldName} className={`grid gap-2 ${wc || "md:col-span-2"}`}>
+          <Label htmlFor={attr.fieldName}>
+            {attr.displayName}
+            {attr.required && <span className="text-destructive ml-1">*</span>}
+          </Label>
+          <Suspense fallback={<div className="h-[240px] rounded-md border bg-muted animate-pulse" />}>
+            <GeoPicker
+              value={(data[attr.fieldName] as string) ?? ""}
+              onChange={(val) => set(attr.fieldName, val)}
+            />
+          </Suspense>
+        </div>
+      );
+    }
+
+    if (attr.widget === "geoshape") {
+      return (
+        <div key={attr.fieldName} className={`grid gap-2 ${wc || "md:col-span-2"}`}>
+          <Label htmlFor={attr.fieldName}>
+            {attr.displayName}
+            {attr.required && <span className="text-destructive ml-1">*</span>}
+          </Label>
+          <Suspense fallback={<div className="h-[300px] rounded-md border bg-muted animate-pulse" />}>
+            <GeoShapeEditor
+              value={(data[attr.fieldName] as string) ?? ""}
+              onChange={(val) => set(attr.fieldName, val)}
+            />
+          </Suspense>
         </div>
       );
     }
@@ -222,6 +303,7 @@ export function EntityForm({
             <Input
               id={f.key}
               type={f.type || "text"}
+              maxLength={f.maxLength}
               value={(data[f.key] as string) ?? ""}
               onChange={(e) => set(f.key, e.target.value)}
             />
