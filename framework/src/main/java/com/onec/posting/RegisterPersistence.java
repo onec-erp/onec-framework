@@ -344,6 +344,200 @@ public class RegisterPersistence<T extends AccumulationRecord> {
         );
     }
 
+    // --- Totals management ---
+
+    public void rebuildTotals() {
+        if (descriptor.accumulationType() != AccumulationType.BALANCE) return;
+
+        String dimCols = descriptor.dimensions().stream()
+                .map(AttributeDescriptor::columnName)
+                .collect(Collectors.joining(", "));
+
+        String resSums = descriptor.resources().stream()
+                .map(r -> "SUM(CASE WHEN _movement_type = 'RECEIPT' THEN " + r.columnName() +
+                        " ELSE -" + r.columnName() + " END) AS " + r.columnName())
+                .collect(Collectors.joining(", "));
+
+        jdbi.useTransaction(handle -> {
+            handle.execute("DELETE FROM " + descriptor.totalsTableName());
+
+            String sql = "INSERT INTO " + descriptor.totalsTableName() +
+                    " (" + dimCols + ", " +
+                    descriptor.resources().stream().map(AttributeDescriptor::columnName)
+                            .collect(Collectors.joining(", ")) +
+                    ") SELECT " + dimCols + ", " + resSums +
+                    " FROM " + descriptor.tableName() +
+                    " WHERE _active = TRUE GROUP BY " + dimCols;
+            handle.execute(sql);
+        });
+    }
+
+    public boolean verifyTotals() {
+        if (descriptor.accumulationType() != AccumulationType.BALANCE) return true;
+
+        String dimCols = descriptor.dimensions().stream()
+                .map(AttributeDescriptor::columnName)
+                .collect(Collectors.joining(", "));
+
+        String resSums = descriptor.resources().stream()
+                .map(r -> "SUM(CASE WHEN _movement_type = 'RECEIPT' THEN " + r.columnName() +
+                        " ELSE -" + r.columnName() + " END) AS " + r.columnName())
+                .collect(Collectors.joining(", "));
+
+        String computedSql = "SELECT " + dimCols + ", " + resSums +
+                " FROM " + descriptor.tableName() +
+                " WHERE _active = TRUE GROUP BY " + dimCols;
+
+        String storedSql = "SELECT * FROM " + descriptor.totalsTableName();
+
+        return jdbi.withHandle(handle -> {
+            List<Map<String, Object>> computed = handle.createQuery(computedSql).mapToMap().list();
+            List<Map<String, Object>> stored = handle.createQuery(storedSql).mapToMap().list();
+
+            if (computed.size() != stored.size()) return false;
+
+            // Build a map keyed by dimension values for comparison
+            Map<String, Map<String, Object>> computedByKey = new HashMap<>();
+            for (Map<String, Object> row : computed) {
+                String key = descriptor.dimensions().stream()
+                        .map(d -> String.valueOf(row.get(d.columnName())))
+                        .collect(Collectors.joining("|"));
+                computedByKey.put(key, row);
+            }
+
+            for (Map<String, Object> storedRow : stored) {
+                String key = descriptor.dimensions().stream()
+                        .map(d -> String.valueOf(storedRow.get(d.columnName())))
+                        .collect(Collectors.joining("|"));
+                Map<String, Object> computedRow = computedByKey.get(key);
+                if (computedRow == null) return false;
+
+                for (AttributeDescriptor res : descriptor.resources()) {
+                    BigDecimal storedVal = toBigDecimal(storedRow.get(res.columnName()));
+                    BigDecimal computedVal = toBigDecimal(computedRow.get(res.columnName()));
+                    if (storedVal.compareTo(computedVal) != 0) return false;
+                }
+            }
+            return true;
+        });
+    }
+
+    // --- Query builder support ---
+
+    @SuppressWarnings("unchecked")
+    public List<T> executeQuery(com.onec.repository.RegisterQueryBuilder<T> builder) {
+        var queryType = builder.getQueryType();
+        var filters = builder.getFilters();
+        var groupByFields = builder.getGroupByFields();
+        var atDate = builder.getAtDate();
+        var fromDate = builder.getFromDate();
+        var toDate = builder.getToDate();
+
+        // Resolve field names to column names
+        Map<String, Object> resolvedFilters = resolveFieldFilters(filters);
+
+        // Determine which dimensions to group by
+        List<AttributeDescriptor> groupDims;
+        if (groupByFields.isEmpty()) {
+            groupDims = descriptor.dimensions();
+        } else {
+            groupDims = groupByFields.stream()
+                    .map(this::findDimensionByField)
+                    .filter(Objects::nonNull)
+                    .toList();
+        }
+
+        String dimCols = groupDims.stream()
+                .map(AttributeDescriptor::columnName)
+                .collect(Collectors.joining(", "));
+
+        String resSums = descriptor.resources().stream()
+                .map(r -> "SUM(CASE WHEN _movement_type = 'RECEIPT' THEN " + r.columnName() +
+                        " ELSE -" + r.columnName() + " END) AS " + r.columnName())
+                .collect(Collectors.joining(", "));
+
+        StringBuilder sql = new StringBuilder();
+
+        if (queryType == com.onec.repository.RegisterQueryBuilder.QueryType.BALANCE) {
+            if (atDate != null) {
+                // Point-in-time balance from movements
+                sql.append("SELECT ").append(dimCols).append(", ").append(resSums)
+                        .append(" FROM ").append(descriptor.tableName())
+                        .append(" WHERE _active = TRUE AND _period <= :atDate");
+            } else if (!groupByFields.isEmpty()) {
+                // Partial group-by from movements (can't use totals table with fewer dims)
+                sql.append("SELECT ").append(dimCols).append(", ").append(resSums)
+                        .append(" FROM ").append(descriptor.tableName())
+                        .append(" WHERE _active = TRUE");
+            } else {
+                // Current balance from totals table
+                sql.append("SELECT * FROM ").append(descriptor.totalsTableName())
+                        .append(" WHERE 1=1");
+            }
+        } else {
+            // Turnover
+            sql.append("SELECT ").append(dimCols).append(", ").append(resSums)
+                    .append(" FROM ").append(descriptor.tableName())
+                    .append(" WHERE _active = TRUE");
+            if (fromDate != null) sql.append(" AND _period >= :fromDate");
+            if (toDate != null) sql.append(" AND _period <= :toDate");
+        }
+
+        if (resolvedFilters != null) {
+            for (String col : resolvedFilters.keySet()) {
+                sql.append(" AND ").append(col).append(" = :f_").append(col);
+            }
+        }
+
+        // Add GROUP BY for aggregated queries (not plain totals table select)
+        boolean needsGroupBy = atDate != null || !groupByFields.isEmpty() ||
+                queryType == com.onec.repository.RegisterQueryBuilder.QueryType.TURNOVER;
+        if (needsGroupBy && !dimCols.isEmpty()) {
+            sql.append(" GROUP BY ").append(dimCols);
+        }
+
+        return jdbi.withHandle(handle -> {
+            var query = handle.createQuery(sql.toString());
+            if (atDate != null) query.bind("atDate", atDate);
+            if (fromDate != null) query.bind("fromDate", fromDate);
+            if (toDate != null) query.bind("toDate", toDate);
+            if (resolvedFilters != null) {
+                resolvedFilters.forEach((col, val) -> query.bind("f_" + col, val));
+            }
+
+            List<AttributeDescriptor> finalGroupDims = groupDims;
+            return query.map((rs, ctx) -> {
+                try {
+                    T record = (T) descriptor.javaClass().getDeclaredConstructor().newInstance();
+                    for (AttributeDescriptor dim : finalGroupDims) {
+                        Field field = findField(descriptor.javaClass(), dim.fieldName());
+                        field.setAccessible(true);
+                        field.set(record, rs.getObject(dim.columnName(), field.getType()));
+                    }
+                    for (AttributeDescriptor res : descriptor.resources()) {
+                        Field field = findField(descriptor.javaClass(), res.fieldName());
+                        field.setAccessible(true);
+                        field.set(record, rs.getObject(res.columnName(), BigDecimal.class));
+                    }
+                    return record;
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to map query result", e);
+                }
+            }).list();
+        });
+    }
+
+    private AttributeDescriptor findDimensionByField(String fieldName) {
+        for (AttributeDescriptor dim : descriptor.dimensions()) {
+            if (dim.fieldName().equals(fieldName)) return dim;
+        }
+        return null;
+    }
+
+    public AccumulationRegisterDescriptor getDescriptor() {
+        return descriptor;
+    }
+
     public Map<String, Object> resolveFieldFilters(Map<String, Object> fieldFilters) {
         if (fieldFilters == null || fieldFilters.isEmpty()) return fieldFilters;
 

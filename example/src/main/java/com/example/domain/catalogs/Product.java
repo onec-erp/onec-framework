@@ -16,10 +16,10 @@ import java.math.BigDecimal;
 @ToString(callSuper = true)
 public class Product extends CatalogObject {
 
-    @Attribute(length = 100)
+    @Attribute(displayName = "Full Name", length = 100)
     private String fullName;
 
-    @Attribute(precision = 15, scale = 2)
+    @Attribute(displayName = "Unit Price", precision = 15, scale = 2)
     private BigDecimal unitPrice;
 
     @Attribute(length = 25)

@@ -10,4 +10,6 @@ import java.lang.annotation.Target;
 public @interface Dimension {
 
     String name() default "";
+
+    String displayName() default "";
 }

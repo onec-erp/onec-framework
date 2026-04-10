@@ -6,6 +6,7 @@ plugins {
 
 dependencies {
     implementation(project(":framework-spring-boot-starter"))
+    implementation(project(":framework-ui-spring-boot-starter"))
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jdbc")
     implementation("com.h2database:h2")

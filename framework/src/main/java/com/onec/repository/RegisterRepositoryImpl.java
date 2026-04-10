@@ -82,6 +82,21 @@ public class RegisterRepositoryImpl<T extends AccumulationRecord> implements Reg
         return record;
     }
 
+    @Override
+    public RegisterQueryBuilder<T> query() {
+        return new RegisterQueryBuilder<>(persistence);
+    }
+
+    @Override
+    public void rebuildTotals() {
+        persistence.rebuildTotals();
+    }
+
+    @Override
+    public boolean verifyTotals() {
+        return persistence.verifyTotals();
+    }
+
     public List<T> getPendingMovements() {
         return Collections.unmodifiableList(pendingMovements);
     }

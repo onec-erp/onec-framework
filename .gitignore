@@ -13,6 +13,10 @@ out/
 .DS_Store
 Thumbs.db
 
+# Frontend build artifacts
+framework-ui-spring-boot-starter/src/main/frontend/dist/
+framework-ui-spring-boot-starter/src/main/frontend/node_modules/
+
 # AI tooling
 .ai/
 

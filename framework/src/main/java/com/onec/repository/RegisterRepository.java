@@ -35,4 +35,10 @@ public interface RegisterRepository<T extends AccumulationRecord> extends Reposi
     T addReceipt(Consumer<T> configurator);
 
     T addExpense(Consumer<T> configurator);
+
+    RegisterQueryBuilder<T> query();
+
+    void rebuildTotals();
+
+    boolean verifyTotals();
 }

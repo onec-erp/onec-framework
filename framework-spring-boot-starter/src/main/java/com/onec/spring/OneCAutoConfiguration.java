@@ -28,7 +28,6 @@ import java.util.Map;
 @AutoConfiguration(after = DataSourceAutoConfiguration.class)
 @EnableConfigurationProperties(OneCProperties.class)
 @ConditionalOnBean(DataSource.class)
-@Import(RegisterRepositoriesAutoConfiguration.class)
 public class OneCAutoConfiguration extends AbstractJdbcConfiguration {
 
     @Bean
@@ -52,13 +51,29 @@ public class OneCAutoConfiguration extends AbstractJdbcConfiguration {
     }
 
     @Bean
-    public OneCBeforeConvertCallback oneCBeforeConvertCallback() {
-        return new OneCBeforeConvertCallback();
+    public OneCBeforeConvertCallback oneCBeforeConvertCallback(MetadataRegistry registry,
+                                                                com.onec.numbering.NumberGenerator numberGenerator) {
+        return new OneCBeforeConvertCallback(registry, numberGenerator);
     }
 
     @Bean
     public OneCAfterSaveCallback oneCAfterSaveCallback() {
         return new OneCAfterSaveCallback();
+    }
+
+    @Bean
+    public OneCBeforeDeleteCallback oneCBeforeDeleteCallback() {
+        return new OneCBeforeDeleteCallback();
+    }
+
+    @Bean
+    public com.onec.numbering.NumberGenerator numberGenerator(Jdbi jdbi) {
+        return new JdbcNumberGenerator(jdbi);
+    }
+
+    @Bean
+    public com.onec.types.RefResolver refResolver(ApplicationContext applicationContext) {
+        return new SpringRefResolver(applicationContext);
     }
 
     @Bean
@@ -99,6 +114,9 @@ public class OneCAutoConfiguration extends AbstractJdbcConfiguration {
         MetadataRegistry registry = new MetadataRegistry();
         MetadataScanner scanner = new MetadataScanner(new DefaultNamingStrategy());
 
+        for (Class<?> clazz : new CatalogScanner().scan(scanPackages)) {
+            registry.registerCatalog(scanner.scan(clazz));
+        }
         for (Class<?> clazz : new DocumentScanner().scan(scanPackages)) {
             registry.registerDocument(scanner.scanDocument(clazz));
         }

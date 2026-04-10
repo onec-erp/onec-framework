@@ -11,6 +11,8 @@ public @interface Attribute {
 
     String name() default "";
 
+    String displayName() default "";
+
     int length() default 255;
 
     boolean required() default false;

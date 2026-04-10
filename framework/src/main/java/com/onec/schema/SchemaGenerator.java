@@ -22,8 +22,16 @@ public class SchemaGenerator {
         this.registry = registry;
     }
 
+    public static String generateSequenceTableDDL() {
+        return "CREATE TABLE IF NOT EXISTS _onec_sequences (\n" +
+                "    entity_name VARCHAR(255) PRIMARY KEY,\n" +
+                "    last_value BIGINT NOT NULL DEFAULT 0\n" +
+                ")";
+    }
+
     public List<String> generateDDL() {
         List<String> statements = new ArrayList<>();
+        statements.add(generateSequenceTableDDL());
         for (CatalogDescriptor catalog : registry.allCatalogs()) {
             statements.add(generateCatalogDDL(catalog));
         }

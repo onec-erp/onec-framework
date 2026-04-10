@@ -1,5 +1,7 @@
 package com.onec.posting;
 
+import com.onec.lifecycle.AfterPostHandler;
+import com.onec.lifecycle.BeforePostHandler;
 import com.onec.lifecycle.Postable;
 import com.onec.metadata.DocumentDescriptor;
 import com.onec.metadata.MetadataRegistry;
@@ -30,6 +32,10 @@ public class PostingEngine {
                     document.getClass().getName() + " does not implement Postable");
         }
 
+        if (document instanceof BeforePostHandler handler) {
+            handler.beforePost();
+        }
+
         DocumentDescriptor docDescriptor = registry.getDocumentDescriptor(document.getClass());
 
         PostingContext context = new PostingContext(repositoryMap);
@@ -51,6 +57,10 @@ public class PostingEngine {
         });
 
         document.setPosted(true);
+
+        if (document instanceof AfterPostHandler handler) {
+            handler.afterPost();
+        }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

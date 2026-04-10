@@ -24,6 +24,20 @@ public class MetadataScanner {
         this.naming = naming;
     }
 
+    static String humanize(String camelCase) {
+        if (camelCase == null || camelCase.isEmpty()) return camelCase;
+        StringBuilder sb = new StringBuilder();
+        sb.append(Character.toUpperCase(camelCase.charAt(0)));
+        for (int i = 1; i < camelCase.length(); i++) {
+            char c = camelCase.charAt(i);
+            if (Character.isUpperCase(c)) {
+                sb.append(' ');
+            }
+            sb.append(c);
+        }
+        return sb.toString();
+    }
+
     public CatalogDescriptor scan(Class<?> clazz) {
         Catalog catalog = clazz.getAnnotation(Catalog.class);
         if (catalog == null) {
@@ -92,12 +106,14 @@ public class MetadataScanner {
                 if (dim == null) continue;
 
                 String fieldName = field.getName();
+                String displayName = dim.displayName().isEmpty()
+                        ? humanize(fieldName) : dim.displayName();
                 String columnName = naming.column(dim.name().isEmpty() ? fieldName : dim.name());
                 Class<?> javaType = field.getType();
                 boolean isRef = Ref.class.isAssignableFrom(javaType);
 
                 result.add(new AttributeDescriptor(
-                        fieldName, columnName, javaType, 255, false, isRef, 0, 0));
+                        fieldName, displayName, columnName, javaType, 255, false, isRef, 0, 0));
             }
             current = current.getSuperclass();
         }
@@ -115,10 +131,12 @@ public class MetadataScanner {
                 if (res == null) continue;
 
                 String fieldName = field.getName();
+                String displayName = res.displayName().isEmpty()
+                        ? humanize(fieldName) : res.displayName();
                 String columnName = naming.column(res.name().isEmpty() ? fieldName : res.name());
 
                 result.add(new AttributeDescriptor(
-                        fieldName, columnName, BigDecimal.class, 0, false, false,
+                        fieldName, displayName, columnName, BigDecimal.class, 0, false, false,
                         res.precision(), res.scale()));
             }
             current = current.getSuperclass();
@@ -139,6 +157,8 @@ public class MetadataScanner {
                 }
 
                 String fieldName = field.getName();
+                String displayName = attr.displayName().isEmpty()
+                        ? humanize(fieldName) : attr.displayName();
                 String columnName = naming.column(
                         attr.name().isEmpty() ? fieldName : attr.name()
                 );
@@ -147,6 +167,7 @@ public class MetadataScanner {
 
                 result.add(new AttributeDescriptor(
                         fieldName,
+                        displayName,
                         columnName,
                         javaType,
                         attr.length(),
