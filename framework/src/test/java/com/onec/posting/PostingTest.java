@@ -5,6 +5,7 @@ import com.onec.fixtures.TestReceiptLine;
 import com.onec.fixtures.TestStockRegister;
 import com.onec.metadata.*;
 import com.onec.model.DocumentObject;
+import com.onec.repository.RegisterRepositoryImpl;
 import com.onec.schema.SchemaGenerator;
 
 import org.h2.jdbcx.JdbcDataSource;
@@ -43,10 +44,13 @@ class PostingTest {
         AccumulationRegisterDescriptor stockDesc = registry.getRegisterDescriptor(TestStockRegister.class);
         stockPersistence = new RegisterPersistence<>(jdbi, stockDesc);
 
-        Map<Class<?>, RegisterPersistence<?>> persistenceMap = new HashMap<>();
-        persistenceMap.put(TestStockRegister.class, stockPersistence);
+        RegisterRepositoryImpl<TestStockRegister> stockRepo =
+                new RegisterRepositoryImpl<>(stockPersistence, TestStockRegister.class);
 
-        engine = new PostingEngine(jdbi, registry, persistenceMap);
+        Map<Class<?>, RegisterRepositoryImpl<?>> repositoryMap = new HashMap<>();
+        repositoryMap.put(TestStockRegister.class, stockRepo);
+
+        engine = new PostingEngine(jdbi, registry, repositoryMap);
     }
 
     private TestReceipt createReceipt(UUID warehouse, UUID product, BigDecimal qty) {

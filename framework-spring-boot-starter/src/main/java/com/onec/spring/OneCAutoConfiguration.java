@@ -4,7 +4,6 @@ import com.onec.metadata.*;
 import com.onec.posting.PostingEngine;
 import com.onec.posting.PostingService;
 import com.onec.posting.RegisterPersistence;
-import com.onec.repository.RegisterRepository;
 import com.onec.repository.RegisterRepositoryImpl;
 
 import org.jdbi.v3.core.Jdbi;
@@ -15,9 +14,11 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
 import org.springframework.data.jdbc.repository.config.AbstractJdbcConfiguration;
 import org.springframework.data.relational.core.mapping.NamingStrategy;
+import org.springframework.data.repository.config.BootstrapMode;
 
 import javax.sql.DataSource;
 import java.util.HashMap;
@@ -27,6 +28,7 @@ import java.util.Map;
 @AutoConfiguration(after = DataSourceAutoConfiguration.class)
 @EnableConfigurationProperties(OneCProperties.class)
 @ConditionalOnBean(DataSource.class)
+@Import(RegisterRepositoriesAutoConfiguration.class)
 public class OneCAutoConfiguration extends AbstractJdbcConfiguration {
 
     @Bean
@@ -75,27 +77,22 @@ public class OneCAutoConfiguration extends AbstractJdbcConfiguration {
     }
 
     @Bean
-    public PostingService postingService(Jdbi jdbi, MetadataRegistry registry,
-                                         Map<Class<?>, RegisterPersistence<?>> persistenceMap) {
-        PostingEngine engine = new PostingEngine(jdbi, registry, persistenceMap);
-        return new PostingService(engine);
-    }
-
-    @Bean
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public Map<Class<?>, RegisterRepository<?>> registerRepositories(
+    public Map<Class<?>, RegisterRepositoryImpl<?>> registerRepositoryImplMap(
             Map<Class<?>, RegisterPersistence<?>> persistenceMap) {
-        Map<Class<?>, RegisterRepository<?>> repos = new HashMap<>();
+        Map<Class<?>, RegisterRepositoryImpl<?>> repos = new HashMap<>();
         for (var entry : persistenceMap.entrySet()) {
-            repos.put(entry.getKey(), new RegisterRepositoryImpl(entry.getValue()));
+            Class registerClass = entry.getKey();
+            repos.put(entry.getKey(), new RegisterRepositoryImpl(entry.getValue(), registerClass));
         }
         return repos;
     }
 
     @Bean
-    public RegisterRepositoryProvider registerRepositoryProvider(
-            Map<Class<?>, RegisterRepository<?>> registerRepositories) {
-        return new RegisterRepositoryProvider(registerRepositories);
+    public PostingService postingService(Jdbi jdbi, MetadataRegistry registry,
+                                         Map<Class<?>, RegisterRepositoryImpl<?>> repositoryImplMap) {
+        PostingEngine engine = new PostingEngine(jdbi, registry, repositoryImplMap);
+        return new PostingService(engine);
     }
 
     private MetadataRegistry buildRegistry(List<String> scanPackages) {
@@ -121,7 +118,7 @@ public class OneCAutoConfiguration extends AbstractJdbcConfiguration {
         return map;
     }
 
-    private List<String> resolvePackages(OneCProperties properties, ApplicationContext context) {
+    static List<String> resolvePackages(OneCProperties properties, ApplicationContext context) {
         if (!properties.getScanPackages().isEmpty()) {
             return properties.getScanPackages();
         }

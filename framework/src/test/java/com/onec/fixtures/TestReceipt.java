@@ -5,9 +5,7 @@ import com.onec.annotations.Document;
 import com.onec.annotations.TabularSection;
 import com.onec.lifecycle.Postable;
 import com.onec.model.DocumentObject;
-import com.onec.annotations.HandlePosting;
-import com.onec.model.MovementType;
-import com.onec.posting.RegisterMovementCollection;
+import com.onec.posting.PostingContext;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -27,14 +25,15 @@ public class TestReceipt extends DocumentObject implements Postable {
     @TabularSection(name = "items")
     private List<TestReceiptLine> items = new ArrayList<>();
 
-    @HandlePosting
-    public void handlePosting(RegisterMovementCollection<TestStockRegister> movements) {
+    @Override
+    public void handlePosting(PostingContext context) {
+        var movements = context.register(TestStockRegister.class);
         for (TestReceiptLine line : items) {
-            var record = movements.add();
-            record.setProduct(line.getProduct());
-            record.setWarehouse(this.warehouse);
-            record.setQuantity(line.getQuantity());
-            record.setMovementType(MovementType.RECEIPT);
+            movements.addReceipt(r -> {
+                r.setProduct(line.getProduct());
+                r.setWarehouse(this.warehouse);
+                r.setQuantity(line.getQuantity());
+            });
         }
     }
 }

@@ -3,13 +3,11 @@ package com.example.domain.documents;
 import com.example.domain.registers.SalesRegister;
 import com.onec.annotations.Attribute;
 import com.onec.annotations.Document;
-import com.onec.annotations.HandlePosting;
 import com.onec.annotations.TabularSection;
 import com.onec.lifecycle.BeforeWriteHandler;
 import com.onec.lifecycle.Postable;
 import com.onec.model.DocumentObject;
-import com.onec.model.MovementType;
-import com.onec.posting.RegisterMovementCollection;
+import com.onec.posting.PostingContext;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -43,14 +41,15 @@ public class Invoice extends DocumentObject implements BeforeWriteHandler, Posta
         this.total = sum;
     }
 
-    @HandlePosting
-    public void handlePosting(RegisterMovementCollection<SalesRegister> movements) {
+    @Override
+    public void handlePosting(PostingContext context) {
+        var sales = context.register(SalesRegister.class);
         for (InvoiceLine line : items) {
-            var record = movements.add();
-            record.setProductName(line.getProductName());
-            record.setQuantity(line.getQuantity());
-            record.setAmount(line.getAmount());
-            record.setMovementType(MovementType.RECEIPT);
+            sales.addReceipt(r -> {
+                r.setProductName(line.getProductName());
+                r.setQuantity(line.getQuantity());
+                r.setAmount(line.getAmount());
+            });
         }
     }
 }

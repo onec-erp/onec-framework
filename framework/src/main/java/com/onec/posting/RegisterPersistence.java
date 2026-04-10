@@ -344,6 +344,32 @@ public class RegisterPersistence<T extends AccumulationRecord> {
         );
     }
 
+    public Map<String, Object> resolveFieldFilters(Map<String, Object> fieldFilters) {
+        if (fieldFilters == null || fieldFilters.isEmpty()) return fieldFilters;
+
+        Map<String, Object> resolved = new LinkedHashMap<>();
+        for (var entry : fieldFilters.entrySet()) {
+            String fieldName = entry.getKey();
+            String columnName = fieldToColumn(fieldName);
+            resolved.put(columnName, entry.getValue());
+        }
+        return resolved;
+    }
+
+    private String fieldToColumn(String fieldName) {
+        for (AttributeDescriptor dim : descriptor.dimensions()) {
+            if (dim.fieldName().equals(fieldName)) {
+                return dim.columnName();
+            }
+        }
+        for (AttributeDescriptor res : descriptor.resources()) {
+            if (res.fieldName().equals(fieldName)) {
+                return res.columnName();
+            }
+        }
+        return fieldName;
+    }
+
     // --- Mapping ---
 
     private void mapDimensionsAndResources(T record, java.sql.ResultSet rs) throws Exception {
