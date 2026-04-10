@@ -4,9 +4,11 @@ import com.onec.metadata.*;
 import com.onec.posting.PostingEngine;
 import com.onec.posting.PostingService;
 import com.onec.posting.RegisterPersistence;
-import com.onec.repository.RegisterRepositoryImpl;
+import com.onec.jobs.BackgroundJobs;
+import com.onec.repository.*;
 
 import org.jdbi.v3.core.Jdbi;
+import org.jobrunr.scheduling.JobScheduler;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackages;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -110,18 +112,69 @@ public class OneCAutoConfiguration extends AbstractJdbcConfiguration {
         return new PostingService(engine);
     }
 
+    @Bean
+    public EnumerationPersistence enumerationPersistence(Jdbi jdbi) {
+        return new EnumerationPersistence(jdbi);
+    }
+
+    @Bean
+    public Map<Class<?>, InformationRegisterRepositoryImpl<?>> informationRegisterRepositoryMap(
+            Jdbi jdbi, MetadataRegistry registry) {
+        Map<Class<?>, InformationRegisterRepositoryImpl<?>> repos = new HashMap<>();
+        for (InformationRegisterDescriptor desc : registry.allInformationRegisters()) {
+            var persistence = new InformationRegisterPersistence<>(jdbi, desc);
+            repos.put(desc.javaClass(), new InformationRegisterRepositoryImpl<>(persistence));
+        }
+        return repos;
+    }
+
+    @Bean
+    public ConstantPersistence constantPersistence(Jdbi jdbi) {
+        return new ConstantPersistence(jdbi);
+    }
+
+    @Bean
+    public ConstantManager constantManager(ConstantPersistence constantPersistence, MetadataRegistry registry) {
+        return new ConstantManager(constantPersistence, registry);
+    }
+
+    @Bean
+    @ConditionalOnBean(JobScheduler.class)
+    public BackgroundJobs backgroundJobs(JobScheduler jobScheduler) {
+        return new JobrunrBackgroundJobs(jobScheduler);
+    }
+
+    @Bean
+    @ConditionalOnBean(JobScheduler.class)
+    public ScheduledJobRegistrar scheduledJobRegistrar(ApplicationContext applicationContext,
+                                                        JobScheduler jobScheduler) {
+        return new ScheduledJobRegistrar(applicationContext, jobScheduler);
+    }
+
     private MetadataRegistry buildRegistry(List<String> scanPackages) {
         MetadataRegistry registry = new MetadataRegistry();
         MetadataScanner scanner = new MetadataScanner(new DefaultNamingStrategy());
 
         for (Class<?> clazz : new CatalogScanner().scan(scanPackages)) {
             registry.registerCatalog(scanner.scan(clazz));
+            registry.registerDashboardWidgets(scanner.scanDashboardWidgets(clazz));
         }
         for (Class<?> clazz : new DocumentScanner().scan(scanPackages)) {
             registry.registerDocument(scanner.scanDocument(clazz));
+            registry.registerDashboardWidgets(scanner.scanDashboardWidgets(clazz));
         }
         for (Class<?> clazz : new AccumulationScanner().scan(scanPackages)) {
             registry.registerAccumulation(scanner.scanRegister(clazz));
+            registry.registerDashboardWidgets(scanner.scanDashboardWidgets(clazz));
+        }
+        for (Class<?> clazz : new EnumerationScanner().scan(scanPackages)) {
+            registry.registerEnumeration(scanner.scanEnumeration(clazz));
+        }
+        for (Class<?> clazz : new InformationRegisterScanner().scan(scanPackages)) {
+            registry.registerInformationRegister(scanner.scanInformationRegister(clazz));
+        }
+        for (Class<?> clazz : new ConstantScanner().scan(scanPackages)) {
+            registry.registerConstant(scanner.scanConstant(clazz));
         }
 
         return registry;

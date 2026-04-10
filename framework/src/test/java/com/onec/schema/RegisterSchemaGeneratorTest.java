@@ -26,7 +26,7 @@ class RegisterSchemaGeneratorTest {
         assertThat(ddl).hasSize(3);
 
         String movementDDL = ddl.get(1);
-        assertThat(movementDDL).contains("CREATE TABLE IF NOT EXISTS _register_TestStock");
+        assertThat(movementDDL).contains("CREATE TABLE IF NOT EXISTS register_test_stock");
         assertThat(movementDDL).contains("_id UUID PRIMARY KEY");
         assertThat(movementDDL).contains("_period TIMESTAMP");
         assertThat(movementDDL).contains("_active BOOLEAN DEFAULT TRUE");
@@ -37,7 +37,7 @@ class RegisterSchemaGeneratorTest {
         assertThat(movementDDL).contains("quantity DECIMAL(15,2)");
 
         String totalsDDL = ddl.get(2);
-        assertThat(totalsDDL).contains("CREATE TABLE IF NOT EXISTS _register_TestStock_totals");
+        assertThat(totalsDDL).contains("CREATE TABLE IF NOT EXISTS register_test_stock_totals");
         assertThat(totalsDDL).contains("PRIMARY KEY (product, warehouse)");
         assertThat(totalsDDL).contains("quantity DECIMAL(15,2) DEFAULT 0");
     }
@@ -52,7 +52,7 @@ class RegisterSchemaGeneratorTest {
         List<String> ddl = generator.generateDDL();
 
         assertThat(ddl).hasSize(2);
-        assertThat(ddl.get(1)).contains("_register_TestSales");
+        assertThat(ddl.get(1)).contains("register_test_sales");
         assertThat(ddl.get(1)).doesNotContain("_totals");
     }
 
@@ -72,10 +72,10 @@ class RegisterSchemaGeneratorTest {
         List<String> tables = jdbi.withHandle(handle ->
                 handle.createQuery(
                         "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES " +
-                        "WHERE TABLE_NAME LIKE '_REGISTER_TESTSTOCK%' ORDER BY TABLE_NAME"
+                        "WHERE UPPER(TABLE_NAME) LIKE 'REGISTER_TEST_STOCK%' ORDER BY TABLE_NAME"
                 ).mapTo(String.class).list()
         );
 
-        assertThat(tables).containsExactly("_REGISTER_TESTSTOCK", "_REGISTER_TESTSTOCK_TOTALS");
+        assertThat(tables).containsExactly("REGISTER_TEST_STOCK", "REGISTER_TEST_STOCK_TOTALS");
     }
 }

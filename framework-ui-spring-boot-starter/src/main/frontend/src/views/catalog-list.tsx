@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, BookOpen } from "lucide-react";
 import { api } from "@/lib/api";
 import { toSnakeCase } from "@/lib/utils";
 import type { CatalogMeta, EntityRecord } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableHeader,
@@ -21,7 +20,17 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { EntityForm } from "@/components/entity-form";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
+import { SkeletonTable } from "@/components/skeleton-table";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function CatalogListView() {
   const { name } = useParams<{ name: string }>();
@@ -57,89 +66,117 @@ export function CatalogListView() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!name) return;
+    if (!name || !meta) return;
+    if (!window.confirm(`Delete this ${meta.name}?`)) return;
     await api.deleteCatalogItem(name, id);
     load();
   };
 
-  if (!meta) return <div>Loading...</div>;
+  const listAttrs = useMemo(
+    () => meta?.attributes.filter((a) => a.visibleInList !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) ?? [],
+    [meta]
+  );
+
+  if (!meta) {
+    return (
+      <div className="animate-in-page">
+        <div className="mb-6">
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <SkeletonTable columns={4} rows={5} />
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">{meta.name}</h1>
-          <p className="text-muted-foreground text-sm">Catalog</p>
-        </div>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setDialogOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          New
-        </Button>
-      </div>
+    <div className="animate-in-page">
+      <PageHeader
+        title={meta.name}
+        subtitle="Catalog"
+        breadcrumbs={[{ label: "Catalogs" }, { label: meta.name }]}
+        actions={
+          <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
+            <Plus className="h-4 w-4 mr-2" />
+            New
+          </Button>
+        }
+      />
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Code</TableHead>
-              <TableHead>Description</TableHead>
-              {meta.attributes.map((a) => (
-                <TableHead key={a.fieldName}>{a.displayName}</TableHead>
-              ))}
-              <TableHead className="w-[100px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.length === 0 && (
+      {items.length === 0 ? (
+        <EmptyState
+          icon={BookOpen}
+          title="No records yet"
+          description={`Create your first ${meta.name} record to get started.`}
+          action={
+            <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create {meta.name}
+            </Button>
+          }
+        />
+      ) : (
+        <div className="rounded-lg border overflow-hidden">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell
-                  colSpan={3 + meta.attributes.length}
-                  className="text-center text-muted-foreground py-8"
-                >
-                  No records
-                </TableCell>
-              </TableRow>
-            )}
-            {items.map((item) => (
-              <TableRow key={item._id as string}>
-                <TableCell className="font-mono">{item._code as string}</TableCell>
-                <TableCell>{item._description as string}</TableCell>
-                {meta.attributes.map((a) => (
-                  <TableCell key={a.fieldName}>
-                    {String(item[a.columnName] ?? "")}
-                  </TableCell>
+                <TableHead>Code</TableHead>
+                <TableHead>Description</TableHead>
+                {listAttrs.map((a) => (
+                  <TableHead key={a.fieldName}>{a.displayName}</TableHead>
                 ))}
-                <TableCell>
-                  <div className="flex gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => {
-                        setEditing(item);
-                        setDialogOpen(true);
-                      }}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleDelete(item._id as string)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
+                <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {items.map((item) => (
+                <TableRow key={item._id as string}>
+                  <TableCell className="font-mono">{item._code as string}</TableCell>
+                  <TableCell>{item._description as string}</TableCell>
+                  {listAttrs.map((a) => (
+                    <TableCell key={a.fieldName}>
+                      {String(item[a.columnName] ?? "")}
+                    </TableCell>
+                  ))}
+                  <TableCell>
+                    <TooltipProvider>
+                      <div className="flex gap-1">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => {
+                                setEditing(item);
+                                setDialogOpen(true);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Edit</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => handleDelete(item._id as string)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Delete</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TooltipProvider>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>

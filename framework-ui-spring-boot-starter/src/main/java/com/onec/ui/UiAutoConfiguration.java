@@ -1,6 +1,7 @@
 package com.onec.ui;
 
 import com.onec.metadata.MetadataRegistry;
+import com.onec.posting.PostingService;
 import com.onec.spring.OneCAutoConfiguration;
 
 import org.jdbi.v3.core.Jdbi;
@@ -49,8 +50,9 @@ public class UiAutoConfiguration implements WebMvcConfigurer {
 
     @Bean
     public GenericDocumentController genericDocumentController(MetadataRegistry registry, Jdbi jdbi,
-                                                                UiProperties properties) {
-        return new GenericDocumentController(registry, jdbi, properties);
+                                                                UiProperties properties,
+                                                                PostingService postingService) {
+        return new GenericDocumentController(registry, jdbi, properties, postingService);
     }
 
     @Bean

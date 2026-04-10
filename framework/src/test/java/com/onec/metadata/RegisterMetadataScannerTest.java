@@ -24,8 +24,8 @@ class RegisterMetadataScannerTest {
         AccumulationRegisterDescriptor desc = scanner.scanRegister(TestStockRegister.class);
 
         assertThat(desc.logicalName()).isEqualTo("TestStock");
-        assertThat(desc.tableName()).isEqualTo("_register_TestStock");
-        assertThat(desc.totalsTableName()).isEqualTo("_register_TestStock_totals");
+        assertThat(desc.tableName()).isEqualTo("register_test_stock");
+        assertThat(desc.totalsTableName()).isEqualTo("register_test_stock_totals");
         assertThat(desc.javaClass()).isEqualTo(TestStockRegister.class);
         assertThat(desc.accumulationType()).isEqualTo(AccumulationType.BALANCE);
     }

@@ -5,16 +5,20 @@ import com.onec.model.AccumulationRecord;
 import com.onec.model.AccumulationType;
 import com.onec.model.CatalogObject;
 import com.onec.model.DocumentObject;
+import com.onec.model.InformationRecord;
+import com.onec.model.Periodicity;
 import com.onec.model.TabularSectionRow;
 import com.onec.types.Ref;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class MetadataScanner {
 
@@ -36,6 +40,40 @@ public class MetadataScanner {
             sb.append(c);
         }
         return sb.toString();
+    }
+
+    public List<DashboardWidgetDescriptor> scanDashboardWidgets(Class<?> clazz) {
+        DashboardWidget[] widgets = clazz.getAnnotationsByType(DashboardWidget.class);
+        if (widgets.length == 0) return List.of();
+
+        String entityType;
+        String entityName;
+        if (clazz.isAnnotationPresent(Document.class)) {
+            entityType = "document";
+            entityName = clazz.getAnnotation(Document.class).name();
+        } else if (clazz.isAnnotationPresent(Catalog.class)) {
+            entityType = "catalog";
+            entityName = clazz.getAnnotation(Catalog.class).name();
+        } else if (clazz.isAnnotationPresent(AccumulationRegister.class)) {
+            entityType = "register";
+            entityName = clazz.getAnnotation(AccumulationRegister.class).name();
+        } else {
+            return List.of();
+        }
+
+        List<DashboardWidgetDescriptor> result = new ArrayList<>();
+        for (DashboardWidget w : widgets) {
+            java.util.Map<String, String> extra = new java.util.LinkedHashMap<>();
+            for (String kv : w.extraConfig()) {
+                int eq = kv.indexOf('=');
+                if (eq > 0) extra.put(kv.substring(0, eq), kv.substring(eq + 1));
+            }
+            result.add(new DashboardWidgetDescriptor(
+                    w.title(), w.type(), w.order(), w.width(),
+                    entityType, entityName, w.maxItems(),
+                    w.dateField(), w.titleField(), extra));
+        }
+        return result;
     }
 
     public CatalogDescriptor scan(Class<?> clazz) {
@@ -89,18 +127,82 @@ public class MetadataScanner {
         String totalsTableName = naming.registerTotalsTable(logicalName);
         AccumulationType type = reg.type();
 
-        List<AttributeDescriptor> dimensions = scanDimensions(clazz);
-        List<AttributeDescriptor> resources = scanResources(clazz);
+        List<AttributeDescriptor> dimensions = scanDimensions(clazz, AccumulationRecord.class);
+        List<AttributeDescriptor> resources = scanResources(clazz, AccumulationRecord.class);
 
         return new AccumulationRegisterDescriptor(
                 logicalName, tableName, totalsTableName, clazz, type, dimensions, resources);
     }
 
-    private List<AttributeDescriptor> scanDimensions(Class<?> clazz) {
+    @SuppressWarnings("unchecked")
+    public EnumerationDescriptor scanEnumeration(Class<?> clazz) {
+        Enumeration enumAnnotation = clazz.getAnnotation(Enumeration.class);
+        if (enumAnnotation == null) {
+            throw new IllegalArgumentException(clazz.getName() + " is not annotated with @Enumeration");
+        }
+        if (!clazz.isEnum()) {
+            throw new IllegalArgumentException(clazz.getName() + " must be a Java enum");
+        }
+
+        String logicalName = enumAnnotation.name();
+        String tableName = naming.enumerationTable(logicalName);
+
+        Object[] constants = clazz.getEnumConstants();
+        List<EnumerationValueDescriptor> values = new ArrayList<>();
+        for (int i = 0; i < constants.length; i++) {
+            Enum<?> enumValue = (Enum<?>) constants[i];
+            UUID id = UUID.nameUUIDFromBytes(
+                    (clazz.getName() + "." + enumValue.name()).getBytes(StandardCharsets.UTF_8));
+            values.add(new EnumerationValueDescriptor(enumValue.name(), id, i));
+        }
+
+        return new EnumerationDescriptor(logicalName, tableName, (Class<? extends Enum<?>>) clazz, values);
+    }
+
+    public InformationRegisterDescriptor scanInformationRegister(Class<?> clazz) {
+        InformationRegister reg = clazz.getAnnotation(InformationRegister.class);
+        if (reg == null) {
+            throw new IllegalArgumentException(clazz.getName() + " is not annotated with @InformationRegister");
+        }
+        if (!InformationRecord.class.isAssignableFrom(clazz)) {
+            throw new IllegalArgumentException(clazz.getName() + " must extend InformationRecord");
+        }
+
+        String logicalName = reg.name();
+        String tableName = naming.infoRegisterTable(logicalName);
+        Periodicity periodicity = reg.periodicity();
+
+        List<AttributeDescriptor> dimensions = scanDimensions(clazz, InformationRecord.class);
+        List<AttributeDescriptor> resources = scanResources(clazz, InformationRecord.class);
+        List<AttributeDescriptor> attributes = scanAttributes(clazz, InformationRecord.class);
+
+        return new InformationRegisterDescriptor(
+                logicalName, tableName, clazz, periodicity, dimensions, resources, attributes);
+    }
+
+    public ConstantDescriptor scanConstant(Class<?> clazz) {
+        Constant constant = clazz.getAnnotation(Constant.class);
+        if (constant == null) {
+            throw new IllegalArgumentException(clazz.getName() + " is not annotated with @Constant");
+        }
+
+        String logicalName = constant.name();
+
+        Field[] fields = clazz.getDeclaredFields();
+        if (fields.length != 1) {
+            throw new IllegalArgumentException(
+                    clazz.getName() + " must have exactly one field, found " + fields.length);
+        }
+
+        Field field = fields[0];
+        return new ConstantDescriptor(logicalName, clazz, field.getType(), field.getName());
+    }
+
+    private List<AttributeDescriptor> scanDimensions(Class<?> clazz, Class<?> stopClass) {
         List<AttributeDescriptor> result = new ArrayList<>();
         Class<?> current = clazz;
 
-        while (current != null && current != AccumulationRecord.class && current != Object.class) {
+        while (current != null && current != stopClass && current != Object.class) {
             for (Field field : current.getDeclaredFields()) {
                 Dimension dim = field.getAnnotation(Dimension.class);
                 if (dim == null) continue;
@@ -112,8 +214,16 @@ public class MetadataScanner {
                 Class<?> javaType = field.getType();
                 boolean isRef = Ref.class.isAssignableFrom(javaType);
 
+                UiHint hint = field.getAnnotation(UiHint.class);
                 result.add(new AttributeDescriptor(
-                        fieldName, displayName, columnName, javaType, 255, false, isRef, 0, 0));
+                        fieldName, displayName, columnName, javaType, 255, false, isRef,
+                        isRef ? extractRefTargetName(field) : null, 0, 0,
+                        hint == null || hint.visibleInList(),
+                        hint == null || hint.visibleInForm(),
+                        hint == null || hint.visibleInDetail(),
+                        hint == null ? 0 : hint.order(),
+                        hint == null ? "" : hint.group(),
+                        hint == null ? "" : hint.width()));
             }
             current = current.getSuperclass();
         }
@@ -121,11 +231,11 @@ public class MetadataScanner {
         return result;
     }
 
-    private List<AttributeDescriptor> scanResources(Class<?> clazz) {
+    private List<AttributeDescriptor> scanResources(Class<?> clazz, Class<?> stopClass) {
         List<AttributeDescriptor> result = new ArrayList<>();
         Class<?> current = clazz;
 
-        while (current != null && current != AccumulationRecord.class && current != Object.class) {
+        while (current != null && current != stopClass && current != Object.class) {
             for (Field field : current.getDeclaredFields()) {
                 Resource res = field.getAnnotation(Resource.class);
                 if (res == null) continue;
@@ -135,9 +245,16 @@ public class MetadataScanner {
                         ? humanize(fieldName) : res.displayName();
                 String columnName = naming.column(res.name().isEmpty() ? fieldName : res.name());
 
+                UiHint hint = field.getAnnotation(UiHint.class);
                 result.add(new AttributeDescriptor(
                         fieldName, displayName, columnName, BigDecimal.class, 0, false, false,
-                        res.precision(), res.scale()));
+                        null, res.precision(), res.scale(),
+                        hint == null || hint.visibleInList(),
+                        hint == null || hint.visibleInForm(),
+                        hint == null || hint.visibleInDetail(),
+                        hint == null ? 0 : hint.order(),
+                        hint == null ? "" : hint.group(),
+                        hint == null ? "" : hint.width()));
             }
             current = current.getSuperclass();
         }
@@ -165,6 +282,7 @@ public class MetadataScanner {
                 Class<?> javaType = field.getType();
                 boolean isRef = Ref.class.isAssignableFrom(javaType);
 
+                UiHint hint = field.getAnnotation(UiHint.class);
                 result.add(new AttributeDescriptor(
                         fieldName,
                         displayName,
@@ -173,8 +291,15 @@ public class MetadataScanner {
                         attr.length(),
                         attr.required(),
                         isRef,
+                        isRef ? extractRefTargetName(field) : null,
                         attr.precision(),
-                        attr.scale()
+                        attr.scale(),
+                        hint == null || hint.visibleInList(),
+                        hint == null || hint.visibleInForm(),
+                        hint == null || hint.visibleInDetail(),
+                        hint == null ? 0 : hint.order(),
+                        hint == null ? "" : hint.group(),
+                        hint == null ? "" : hint.width()
                 ));
             }
             current = current.getSuperclass();
@@ -221,6 +346,15 @@ public class MetadataScanner {
         }
 
         return result;
+    }
+
+    private String extractRefTargetName(Field field) {
+        Type genericType = field.getGenericType();
+        if (!(genericType instanceof ParameterizedType paramType)) return null;
+        Type[] typeArgs = paramType.getActualTypeArguments();
+        if (typeArgs.length != 1 || !(typeArgs[0] instanceof Class<?> targetClass)) return null;
+        Catalog catalog = targetClass.getAnnotation(Catalog.class);
+        return catalog != null ? catalog.name() : targetClass.getSimpleName();
     }
 
     private Class<?> extractRowClass(Field field) {

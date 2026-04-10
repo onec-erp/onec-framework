@@ -2,6 +2,7 @@ import { toast } from "sonner";
 import type {
   AppConfig,
   CatalogMeta,
+  DashboardWidgetMeta,
   DocumentMeta,
   EntityRecord,
   RegisterMeta,
@@ -37,6 +38,7 @@ export const api = {
   getCatalogs: () => fetchJson<CatalogMeta[]>(`${BASE}/metadata/catalogs`),
   getDocuments: () => fetchJson<DocumentMeta[]>(`${BASE}/metadata/documents`),
   getRegisters: () => fetchJson<RegisterMeta[]>(`${BASE}/metadata/registers`),
+  getDashboardWidgets: () => fetchJson<DashboardWidgetMeta[]>(`${BASE}/metadata/dashboard`),
 
   // Catalog CRUD
   listCatalog: (name: string) =>
@@ -57,8 +59,13 @@ export const api = {
     fetchJson<void>(`${BASE}/catalogs/${name}/${id}`, { method: "DELETE" }),
 
   // Document CRUD
-  listDocuments: (name: string) =>
-    fetchJson<EntityRecord[]>(`${BASE}/documents/${name}`),
+  listDocuments: (name: string, from?: string, to?: string) => {
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    const qs = params.toString();
+    return fetchJson<EntityRecord[]>(`${BASE}/documents/${name}${qs ? "?" + qs : ""}`);
+  },
   getDocument: (name: string, id: string) =>
     fetchJson<EntityRecord>(`${BASE}/documents/${name}/${id}`),
   createDocument: (name: string, data: EntityRecord) =>
@@ -73,6 +80,10 @@ export const api = {
     }),
   deleteDocument: (name: string, id: string) =>
     fetchJson<void>(`${BASE}/documents/${name}/${id}`, { method: "DELETE" }),
+  postDocument: (name: string, id: string) =>
+    fetchJson<EntityRecord>(`${BASE}/documents/${name}/${id}/post`, { method: "POST" }),
+  unpostDocument: (name: string, id: string) =>
+    fetchJson<EntityRecord>(`${BASE}/documents/${name}/${id}/unpost`, { method: "POST" }),
 
   // Register queries
   getMovements: (name: string, from?: string, to?: string) => {

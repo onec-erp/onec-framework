@@ -22,7 +22,7 @@ class MetadataScannerTest {
         CatalogDescriptor descriptor = scanner.scan(TestProduct.class);
 
         assertThat(descriptor.logicalName()).isEqualTo("TestProducts");
-        assertThat(descriptor.tableName()).isEqualTo("_catalog_TestProducts");
+        assertThat(descriptor.tableName()).isEqualTo("catalog_test_products");
         assertThat(descriptor.codeLength()).isEqualTo(9);
         assertThat(descriptor.javaClass()).isEqualTo(TestProduct.class);
     }

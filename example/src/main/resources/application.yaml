@@ -3,5 +3,9 @@ spring:
     ansi:
       enabled: always
   datasource:
-    url: jdbc:h2:mem:example;DB_CLOSE_DELAY=-1
+    url: jdbc:h2:file:./data/example;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
+server:
+  error:
+    include-stacktrace: always
+    include-message: always

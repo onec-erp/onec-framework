@@ -41,6 +41,16 @@ public class SchemaInitializer implements InitializingBean {
             registry.registerAccumulation(scanner.scanRegister(clazz));
         }
 
+        for (Class<?> clazz : new EnumerationScanner().scan(scanPackages)) {
+            registry.registerEnumeration(scanner.scanEnumeration(clazz));
+        }
+        for (Class<?> clazz : new InformationRegisterScanner().scan(scanPackages)) {
+            registry.registerInformationRegister(scanner.scanInformationRegister(clazz));
+        }
+        for (Class<?> clazz : new ConstantScanner().scan(scanPackages)) {
+            registry.registerConstant(scanner.scanConstant(clazz));
+        }
+
         SchemaGenerator schemaGenerator = new SchemaGenerator(registry);
         schemaGenerator.execute(Jdbi.create(dataSource));
     }

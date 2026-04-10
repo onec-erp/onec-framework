@@ -2,6 +2,7 @@ package com.onec.schema;
 
 import com.onec.metadata.*;
 import com.onec.model.AccumulationType;
+import com.onec.model.Periodicity;
 import com.onec.types.Ref;
 
 import org.jdbi.v3.core.Jdbi;
@@ -23,7 +24,7 @@ public class SchemaGenerator {
     }
 
     public static String generateSequenceTableDDL() {
-        return "CREATE TABLE IF NOT EXISTS _onec_sequences (\n" +
+        return "CREATE TABLE IF NOT EXISTS onec_sequences (\n" +
                 "    entity_name VARCHAR(255) PRIMARY KEY,\n" +
                 "    last_value BIGINT NOT NULL DEFAULT 0\n" +
                 ")";
@@ -46,6 +47,16 @@ public class SchemaGenerator {
             if (reg.accumulationType() == AccumulationType.BALANCE) {
                 statements.add(generateRegisterTotalsDDL(reg));
             }
+        }
+        for (EnumerationDescriptor e : registry.allEnumerations()) {
+            statements.add(generateEnumerationDDL(e));
+            statements.addAll(generateEnumerationInserts(e));
+        }
+        for (InformationRegisterDescriptor reg : registry.allInformationRegisters()) {
+            statements.add(generateInfoRegisterDDL(reg));
+        }
+        if (!registry.allConstants().isEmpty()) {
+            statements.add(generateConstantsTableDDL());
         }
         return statements;
     }
@@ -169,6 +180,69 @@ public class SchemaGenerator {
         return sb.toString();
     }
 
+    private String generateEnumerationDDL(EnumerationDescriptor e) {
+        return "CREATE TABLE IF NOT EXISTS " + e.tableName() + " (\n" +
+                "    _id UUID PRIMARY KEY,\n" +
+                "    _name VARCHAR(255),\n" +
+                "    _order INTEGER\n" +
+                ")";
+    }
+
+    private List<String> generateEnumerationInserts(EnumerationDescriptor e) {
+        List<String> inserts = new ArrayList<>();
+        for (EnumerationValueDescriptor v : e.values()) {
+            inserts.add("MERGE INTO " + e.tableName() +
+                    " (_id, _name, _order) KEY(_id) VALUES ('" +
+                    v.id() + "', '" + v.name() + "', " + v.order() + ")");
+        }
+        return inserts;
+    }
+
+    private String generateInfoRegisterDDL(InformationRegisterDescriptor reg) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("CREATE TABLE IF NOT EXISTS ").append(reg.tableName()).append(" (\n");
+        sb.append("    _id UUID PRIMARY KEY");
+
+        if (reg.periodicity() != Periodicity.NONE) {
+            sb.append(",\n    _period TIMESTAMP");
+        }
+
+        for (AttributeDescriptor dim : reg.dimensions()) {
+            sb.append(",\n    ").append(dim.columnName()).append(" ");
+            sb.append(sqlType(dim.javaType(), dim.length(), dim.precision(), dim.scale()));
+        }
+        for (AttributeDescriptor res : reg.resources()) {
+            sb.append(",\n    ").append(res.columnName()).append(" ");
+            sb.append(sqlType(res.javaType(), res.length(), res.precision(), res.scale()));
+        }
+        for (AttributeDescriptor attr : reg.attributes()) {
+            sb.append(",\n    ").append(attr.columnName()).append(" ");
+            sb.append(sqlType(attr.javaType(), attr.length(), attr.precision(), attr.scale()));
+        }
+
+        // UNIQUE constraint on period + dimensions for upsert semantics
+        List<String> uniqueCols = new ArrayList<>();
+        if (reg.periodicity() != Periodicity.NONE) {
+            uniqueCols.add("_period");
+        }
+        for (AttributeDescriptor dim : reg.dimensions()) {
+            uniqueCols.add(dim.columnName());
+        }
+        if (!uniqueCols.isEmpty()) {
+            sb.append(",\n    UNIQUE (").append(String.join(", ", uniqueCols)).append(")");
+        }
+
+        sb.append("\n)");
+        return sb.toString();
+    }
+
+    private String generateConstantsTableDDL() {
+        return "CREATE TABLE IF NOT EXISTS constants (\n" +
+                "    _name VARCHAR(255) PRIMARY KEY,\n" +
+                "    _value TEXT\n" +
+                ")";
+    }
+
     private static String sqlType(Class<?> javaType, int length, int precision, int scale) {
         if (javaType == String.class) {
             return "VARCHAR(" + length + ")";
@@ -187,6 +261,8 @@ public class SchemaGenerator {
         } else if (javaType == LocalDateTime.class) {
             return "TIMESTAMP";
         } else if (Ref.class.isAssignableFrom(javaType)) {
+            return "UUID";
+        } else if (javaType.isEnum()) {
             return "UUID";
         }
         throw new IllegalArgumentException("Unsupported type: " + javaType.getName());

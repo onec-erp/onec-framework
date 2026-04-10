@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Plus, Trash2, Eye } from "lucide-react";
+import { Plus, Trash2, Eye, FileText } from "lucide-react";
 import { api } from "@/lib/api";
 import { toSnakeCase } from "@/lib/utils";
 import type { DocumentMeta, EntityRecord } from "@/lib/types";
@@ -21,7 +21,17 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { EntityForm } from "@/components/entity-form";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
+import { SkeletonTable } from "@/components/skeleton-table";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function DocumentListView() {
   const { name } = useParams<{ name: string }>();
@@ -51,92 +61,125 @@ export function DocumentListView() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!name) return;
+    if (!name || !meta) return;
+    if (!window.confirm(`Delete this ${meta.name}?`)) return;
     await api.deleteDocument(name, id);
     load();
   };
 
-  if (!meta) return <div>Loading...</div>;
+  const listAttrs = useMemo(
+    () => meta?.attributes.filter((a) => a.visibleInList !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) ?? [],
+    [meta]
+  );
+
+  if (!meta) {
+    return (
+      <div className="animate-in-page">
+        <div className="mb-6">
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <SkeletonTable columns={5} rows={5} />
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">{meta.name}</h1>
-          <p className="text-muted-foreground text-sm">Document</p>
-        </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New
-        </Button>
-      </div>
+    <div className="animate-in-page">
+      <PageHeader
+        title={meta.name}
+        subtitle="Document"
+        breadcrumbs={[{ label: "Documents" }, { label: meta.name }]}
+        actions={
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New
+          </Button>
+        }
+      />
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Number</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Posted</TableHead>
-              {meta.attributes.map((a) => (
-                <TableHead key={a.fieldName}>{a.displayName}</TableHead>
-              ))}
-              <TableHead className="w-[100px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.length === 0 && (
+      {items.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="No documents yet"
+          description={`Create your first ${meta.name} document to get started.`}
+          action={
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create {meta.name}
+            </Button>
+          }
+        />
+      ) : (
+        <div className="rounded-lg border overflow-hidden">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell
-                  colSpan={4 + meta.attributes.length}
-                  className="text-center text-muted-foreground py-8"
-                >
-                  No records
-                </TableCell>
-              </TableRow>
-            )}
-            {items.map((item) => (
-              <TableRow key={item._id as string}>
-                <TableCell className="font-mono">{item._number as string}</TableCell>
-                <TableCell>
-                  {item._date
-                    ? new Date(item._date as string).toLocaleString()
-                    : "—"}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={item._posted ? "default" : "secondary"}>
-                    {item._posted ? "Posted" : "Draft"}
-                  </Badge>
-                </TableCell>
-                {meta.attributes.map((a) => (
-                  <TableCell key={a.fieldName}>
-                    {String(item[a.columnName] ?? "")}
-                  </TableCell>
+                <TableHead>Number</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Posted</TableHead>
+                {listAttrs.map((a) => (
+                  <TableHead key={a.fieldName}>{a.displayName}</TableHead>
                 ))}
-                <TableCell>
-                  <div className="flex gap-1">
-                    <Button size="icon" variant="ghost" asChild>
-                      <Link to={`/documents/${name}/${item._id}`}>
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleDelete(item._id as string)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
+                <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {items.map((item) => (
+                <TableRow key={item._id as string}>
+                  <TableCell className="font-mono">{item._number as string}</TableCell>
+                  <TableCell>
+                    {item._date
+                      ? new Date(item._date as string).toLocaleString()
+                      : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={item._posted ? "success" : "secondary"}>
+                      {item._posted ? "Posted" : "Draft"}
+                    </Badge>
+                  </TableCell>
+                  {listAttrs.map((a) => (
+                    <TableCell key={a.fieldName}>
+                      {String(item[a.columnName] ?? "")}
+                    </TableCell>
+                  ))}
+                  <TableCell>
+                    <TooltipProvider>
+                      <div className="flex gap-1">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="icon" variant="ghost" asChild>
+                              <Link to={`/documents/${name}/${item._id}`}>
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>View</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => handleDelete(item._id as string)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Delete</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TooltipProvider>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className={meta.tabularSections.length > 0 ? "max-w-4xl max-h-[90vh] overflow-y-auto" : undefined}>
           <DialogHeader>
             <DialogTitle>New {meta.name}</DialogTitle>
             <DialogDescription>Fill in the fields to create a new document.</DialogDescription>
@@ -147,6 +190,7 @@ export function DocumentListView() {
               { label: "Date", key: "date", type: "datetime-local" },
             ]}
             attributes={meta.attributes}
+            tabularSections={meta.tabularSections}
             onSubmit={handleCreate}
             onCancel={() => setDialogOpen(false)}
           />

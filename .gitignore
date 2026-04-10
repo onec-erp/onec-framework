@@ -13,6 +13,9 @@ out/
 .DS_Store
 Thumbs.db
 
+# H2 database files
+data/
+
 # Frontend build artifacts
 framework-ui-spring-boot-starter/src/main/frontend/dist/
 framework-ui-spring-boot-starter/src/main/frontend/node_modules/

@@ -25,7 +25,7 @@ class SchemaGeneratorTest {
         assertThat(ddl).hasSize(2);
 
         String sql = ddl.get(1);
-        assertThat(sql).contains("CREATE TABLE IF NOT EXISTS _catalog_TestProducts");
+        assertThat(sql).contains("CREATE TABLE IF NOT EXISTS catalog_test_products");
         assertThat(sql).contains("_id UUID PRIMARY KEY");
         assertThat(sql).contains("_code VARCHAR(9)");
         assertThat(sql).contains("_description VARCHAR(255)");
@@ -50,7 +50,7 @@ class SchemaGeneratorTest {
 
         List<String> tables = jdbi.withHandle(handle ->
                 handle.createQuery(
-                        "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '_CATALOG_TESTPRODUCTS'"
+                        "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE UPPER(TABLE_NAME) = 'CATALOG_TEST_PRODUCTS'"
                 ).mapTo(String.class).list()
         );
 

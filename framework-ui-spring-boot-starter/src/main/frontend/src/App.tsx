@@ -1,16 +1,19 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/providers/theme-provider";
+import { WidgetRegistryProvider } from "@/providers/widget-registry";
 import { AppShell } from "@/components/layout/app-shell";
 import { HomePage } from "@/views/home";
 import { CatalogListView } from "@/views/catalog-list";
 import { DocumentListView } from "@/views/document-list";
 import { DocumentDetailView } from "@/views/document-detail";
 import { RegisterReportView } from "@/views/register-report";
+import { builtInDashboardWidgets } from "@/views/home";
 
 export default function App() {
   return (
     <ThemeProvider>
+      <WidgetRegistryProvider builtInDashboardWidgets={builtInDashboardWidgets}>
       <BrowserRouter basename="/ui">
         <Routes>
           <Route element={<AppShell />}>
@@ -23,6 +26,7 @@ export default function App() {
         </Routes>
       </BrowserRouter>
       <Toaster richColors position="bottom-right" />
+      </WidgetRegistryProvider>
     </ThemeProvider>
   );
 }

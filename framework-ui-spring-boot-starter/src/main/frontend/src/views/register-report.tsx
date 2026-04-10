@@ -4,11 +4,12 @@ import { api } from "@/lib/api";
 import { toSnakeCase } from "@/lib/utils";
 import type { RegisterMeta, EntityRecord } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableHeader,
@@ -17,6 +18,8 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
+import { PageHeader } from "@/components/page-header";
+import { SkeletonTable } from "@/components/skeleton-table";
 
 export function RegisterReportView() {
   const { name } = useParams<{ name: string }>();
@@ -47,16 +50,27 @@ export function RegisterReportView() {
     api.getTurnover(name, from, to).then(setBalances);
   };
 
-  if (!meta) return <div>Loading...</div>;
+  if (!meta) {
+    return (
+      <div className="animate-in-page">
+        <div className="mb-6">
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <SkeletonTable columns={4} rows={5} />
+      </div>
+    );
+  }
 
   const allColumns = [...meta.dimensions, ...meta.resources];
 
   return (
-    <div>
-      <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-3xl font-bold">{meta.name}</h1>
-        <Badge variant="outline">{meta.type}</Badge>
-      </div>
+    <div className="animate-in-page">
+      <PageHeader
+        title={meta.name}
+        breadcrumbs={[{ label: "Registers" }, { label: meta.name }]}
+        badge={<Badge variant="outline">{meta.type}</Badge>}
+      />
 
       <Tabs defaultValue={meta.type === "BALANCE" ? "balance" : "movements"}>
         <TabsList>
@@ -74,7 +88,7 @@ export function RegisterReportView() {
                 <CardTitle className="text-lg">Current Balances</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="rounded-md border">
+                <div className="rounded-lg border overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -117,7 +131,7 @@ export function RegisterReportView() {
               <CardTitle className="text-lg">Movement Records</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
+              <div className="rounded-lg border overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -149,7 +163,7 @@ export function RegisterReportView() {
                         <TableCell>
                           <Badge
                             variant={
-                              row._movement_type === "RECEIPT" ? "default" : "destructive"
+                              row._movement_type === "RECEIPT" ? "success" : "destructive"
                             }
                           >
                             {row._movement_type as string}
@@ -178,24 +192,24 @@ export function RegisterReportView() {
               <div className="flex items-end gap-4 mb-4">
                 <div className="grid gap-2">
                   <Label>From</Label>
-                  <Input
-                    type="datetime-local"
+                  <DatePicker
                     value={from}
-                    onChange={(e) => setFrom(e.target.value)}
+                    onChange={setFrom}
+                    includeTime
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label>To</Label>
-                  <Input
-                    type="datetime-local"
+                  <DatePicker
                     value={to}
-                    onChange={(e) => setTo(e.target.value)}
+                    onChange={setTo}
+                    includeTime
                   />
                 </div>
                 <Button onClick={loadTurnover}>Calculate</Button>
               </div>
 
-              <div className="rounded-md border">
+              <div className="rounded-lg border overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>

@@ -15,7 +15,7 @@ const ThemeContext = createContext<ThemeCtx>({
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem("onec-ui-theme") as Theme) || "system"
+    () => (localStorage.getItem("onec-ui-theme") as Theme) || "dark"
   );
 
   // Apply backend theme CSS variables on mount

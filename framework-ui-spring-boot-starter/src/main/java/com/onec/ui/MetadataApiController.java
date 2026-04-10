@@ -1,5 +1,6 @@
 package com.onec.ui;
 
+import com.onec.annotations.UiSection;
 import com.onec.metadata.*;
 
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,6 +36,27 @@ public class MetadataApiController {
                 .toList();
     }
 
+    @GetMapping("/dashboard")
+    public List<Map<String, Object>> dashboard() {
+        return registry.allDashboardWidgets().stream()
+                .sorted(java.util.Comparator.comparingInt(DashboardWidgetDescriptor::order))
+                .map(w -> {
+                    Map<String, Object> map = new LinkedHashMap<>();
+                    map.put("title", w.title());
+                    map.put("widgetType", w.widgetType());
+                    map.put("order", w.order());
+                    map.put("width", w.width());
+                    map.put("entityType", w.entityType());
+                    map.put("entityName", w.entityName());
+                    map.put("maxItems", w.maxItems());
+                    map.put("dateField", w.dateField());
+                    map.put("titleField", w.titleField());
+                    map.put("extraConfig", w.extraConfig());
+                    return map;
+                })
+                .toList();
+    }
+
     @GetMapping("/registers")
     public List<Map<String, Object>> registers() {
         return registry.allRegisters().stream()
@@ -48,6 +70,7 @@ public class MetadataApiController {
         map.put("tableName", d.tableName());
         map.put("codeLength", d.codeLength());
         map.put("attributes", describeAttributes(d.attributes()));
+        addSectionInfo(map, d.javaClass());
         return map;
     }
 
@@ -64,6 +87,7 @@ public class MetadataApiController {
             tsMap.put("attributes", describeAttributes(ts.attributes()));
             return tsMap;
         }).toList());
+        addSectionInfo(map, d.javaClass());
         return map;
     }
 
@@ -74,7 +98,14 @@ public class MetadataApiController {
         map.put("type", d.accumulationType().name());
         map.put("dimensions", describeAttributes(d.dimensions()));
         map.put("resources", describeAttributes(d.resources()));
+        addSectionInfo(map, d.javaClass());
         return map;
+    }
+
+    private void addSectionInfo(Map<String, Object> map, Class<?> javaClass) {
+        UiSection section = javaClass.getAnnotation(UiSection.class);
+        map.put("section", section != null ? section.value() : null);
+        map.put("sectionOrder", section != null ? section.order() : null);
     }
 
     private List<Map<String, Object>> describeAttributes(List<AttributeDescriptor> attrs) {
@@ -87,8 +118,15 @@ public class MetadataApiController {
             map.put("length", a.length());
             map.put("required", a.required());
             map.put("isRef", a.isRef());
+            map.put("refTarget", a.refTarget());
             map.put("precision", a.precision());
             map.put("scale", a.scale());
+            map.put("visibleInList", a.visibleInList());
+            map.put("visibleInForm", a.visibleInForm());
+            map.put("visibleInDetail", a.visibleInDetail());
+            map.put("order", a.order());
+            map.put("group", a.group());
+            map.put("widthHint", a.widthHint());
             return map;
         }).toList();
     }

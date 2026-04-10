@@ -8,7 +8,14 @@ public record AttributeDescriptor(
         int length,
         boolean required,
         boolean isRef,
+        String refTarget,
         int precision,
-        int scale
+        int scale,
+        boolean visibleInList,
+        boolean visibleInForm,
+        boolean visibleInDetail,
+        int order,
+        String group,
+        String widthHint
 ) {
 }

@@ -25,7 +25,7 @@ class DocumentSchemaGeneratorTest {
         assertThat(ddl).hasSize(3);
 
         String docDDL = ddl.get(1);
-        assertThat(docDDL).contains("CREATE TABLE IF NOT EXISTS _document_TestInvoices");
+        assertThat(docDDL).contains("CREATE TABLE IF NOT EXISTS document_test_invoices");
         assertThat(docDDL).contains("_id UUID PRIMARY KEY");
         assertThat(docDDL).contains("_number VARCHAR(11)");
         assertThat(docDDL).contains("_date TIMESTAMP");
@@ -34,8 +34,8 @@ class DocumentSchemaGeneratorTest {
         assertThat(docDDL).contains("counterparty VARCHAR(200)");
 
         String tsDDL = ddl.get(2);
-        assertThat(tsDDL).contains("CREATE TABLE IF NOT EXISTS _document_TestInvoices_items");
-        assertThat(tsDDL).contains("_parent_id UUID REFERENCES _document_TestInvoices(_id)");
+        assertThat(tsDDL).contains("CREATE TABLE IF NOT EXISTS document_test_invoices_items");
+        assertThat(tsDDL).contains("_parent_id UUID REFERENCES document_test_invoices(_id)");
         assertThat(tsDDL).contains("_line_number INTEGER");
         assertThat(tsDDL).contains("product_name VARCHAR(100)");
         assertThat(tsDDL).contains("quantity DECIMAL(15,2)");
@@ -58,10 +58,10 @@ class DocumentSchemaGeneratorTest {
         List<String> tables = jdbi.withHandle(handle ->
                 handle.createQuery(
                         "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES " +
-                        "WHERE TABLE_NAME LIKE '_DOCUMENT_TESTINVOICES%' ORDER BY TABLE_NAME"
+                        "WHERE UPPER(TABLE_NAME) LIKE 'DOCUMENT_TEST_INVOICES%' ORDER BY TABLE_NAME"
                 ).mapTo(String.class).list()
         );
 
-        assertThat(tables).containsExactly("_DOCUMENT_TESTINVOICES", "_DOCUMENT_TESTINVOICES_ITEMS");
+        assertThat(tables).containsExactly("DOCUMENT_TEST_INVOICES", "DOCUMENT_TEST_INVOICES_ITEMS");
     }
 }

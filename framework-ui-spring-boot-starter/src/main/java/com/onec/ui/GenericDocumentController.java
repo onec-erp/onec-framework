@@ -4,12 +4,21 @@ import com.onec.metadata.AttributeDescriptor;
 import com.onec.metadata.DocumentDescriptor;
 import com.onec.metadata.MetadataRegistry;
 import com.onec.metadata.TabularSectionDescriptor;
+import com.onec.model.DocumentObject;
+import com.onec.model.TabularSectionRow;
+import com.onec.posting.PostingService;
+import com.onec.types.Ref;
 
 import org.jdbi.v3.core.Jdbi;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @RestController
@@ -19,21 +28,35 @@ public class GenericDocumentController {
     private final MetadataRegistry registry;
     private final Jdbi jdbi;
     private final UiProperties properties;
+    private final PostingService postingService;
 
-    public GenericDocumentController(MetadataRegistry registry, Jdbi jdbi, UiProperties properties) {
+    public GenericDocumentController(MetadataRegistry registry, Jdbi jdbi, UiProperties properties,
+                                      PostingService postingService) {
         this.registry = registry;
         this.jdbi = jdbi;
         this.properties = properties;
+        this.postingService = postingService;
     }
 
     @GetMapping("/{name}")
-    public List<Map<String, Object>> list(@PathVariable String name) {
+    public List<Map<String, Object>> list(@PathVariable String name,
+                                           @RequestParam(required = false) String from,
+                                           @RequestParam(required = false) String to) {
         DocumentDescriptor desc = findDocument(name);
-        return jdbi.withHandle(h ->
-                h.createQuery("SELECT * FROM " + desc.tableName() + " ORDER BY _date DESC")
-                        .mapToMap()
-                        .list()
-        );
+        StringBuilder sql = new StringBuilder("SELECT * FROM " + desc.tableName());
+        if (from != null || to != null) {
+            sql.append(" WHERE 1=1");
+            if (from != null) sql.append(" AND _date >= :from");
+            if (to != null) sql.append(" AND _date <= :to");
+        }
+        sql.append(" ORDER BY _date DESC");
+
+        return jdbi.withHandle(h -> {
+            var query = h.createQuery(sql.toString());
+            if (from != null) query.bind("from", from);
+            if (to != null) query.bind("to", to);
+            return query.mapToMap().list();
+        });
     }
 
     @GetMapping("/{name}/{id}")
@@ -148,6 +171,150 @@ public class GenericDocumentController {
         insertTabularSections(desc, id, body);
 
         return get(name, id);
+    }
+
+    @PostMapping("/{name}/{id}/post")
+    public Map<String, Object> post(@PathVariable String name, @PathVariable UUID id) {
+        requireWritable();
+        DocumentDescriptor desc = findDocument(name);
+        DocumentObject doc = loadDocumentObject(desc, id);
+        postingService.post(doc);
+        return get(name, id);
+    }
+
+    @PostMapping("/{name}/{id}/unpost")
+    public Map<String, Object> unpost(@PathVariable String name, @PathVariable UUID id) {
+        requireWritable();
+        DocumentDescriptor desc = findDocument(name);
+        DocumentObject doc = loadDocumentObject(desc, id);
+        postingService.unpost(doc);
+        return get(name, id);
+    }
+
+    @SuppressWarnings("unchecked")
+    private DocumentObject loadDocumentObject(DocumentDescriptor desc, UUID id) {
+        Map<String, Object> raw = jdbi.withHandle(h ->
+                h.createQuery("SELECT * FROM " + desc.tableName() + " WHERE _id = :id")
+                        .bind("id", id)
+                        .mapToMap()
+                        .findOne()
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))
+        );
+
+        try {
+            DocumentObject doc = (DocumentObject) desc.javaClass().getDeclaredConstructor().newInstance();
+            doc.setId(id);
+            doc.setNumber((String) raw.get("_number"));
+            Object dateVal = raw.get("_date");
+            if (dateVal instanceof LocalDateTime ldt) {
+                doc.setDate(ldt);
+            } else if (dateVal instanceof java.sql.Timestamp ts) {
+                doc.setDate(ts.toLocalDateTime());
+            } else if (dateVal != null) {
+                doc.setDate(LocalDateTime.parse(dateVal.toString().replace(' ', 'T')));
+            }
+            doc.setPosted(Boolean.TRUE.equals(raw.get("_posted")));
+            doc.setDeletionMark(Boolean.TRUE.equals(raw.get("_deletion_mark")));
+            doc.setNew(false);
+
+            for (AttributeDescriptor attr : desc.attributes()) {
+                setFieldValue(doc, attr, raw.get(attr.columnName()));
+            }
+
+            for (TabularSectionDescriptor ts : desc.tabularSections()) {
+                List<Map<String, Object>> rows = jdbi.withHandle(h ->
+                        h.createQuery("SELECT * FROM " + ts.tableName() +
+                                        " WHERE _parent_id = :parentId ORDER BY _line_number")
+                                .bind("parentId", id)
+                                .mapToMap()
+                                .list()
+                );
+
+                List<TabularSectionRow> rowObjects = new ArrayList<>();
+                for (Map<String, Object> rowData : rows) {
+                    TabularSectionRow rowObj = (TabularSectionRow) ts.rowClass()
+                            .getDeclaredConstructor().newInstance();
+                    Object rowId = rowData.get("_id");
+                    if (rowId instanceof UUID uuid) {
+                        rowObj.setId(uuid);
+                    } else if (rowId != null) {
+                        rowObj.setId(UUID.fromString(rowId.toString()));
+                    }
+                    Object ln = rowData.get("_line_number");
+                    if (ln instanceof Number num) {
+                        rowObj.setLineNumber(num.intValue());
+                    }
+
+                    for (AttributeDescriptor rowAttr : ts.attributes()) {
+                        setFieldValue(rowObj, rowAttr, rowData.get(rowAttr.columnName()));
+                    }
+                    rowObjects.add(rowObj);
+                }
+
+                Field listField = findField(desc.javaClass(), ts.fieldName());
+                if (listField != null) {
+                    listField.setAccessible(true);
+                    listField.set(doc, rowObjects);
+                }
+            }
+
+            return doc;
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to reconstruct document: " + e.getMessage(), e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void setFieldValue(Object target, AttributeDescriptor attr, Object value) throws Exception {
+        Field field = findField(target.getClass(), attr.fieldName());
+        if (field == null || value == null) return;
+        field.setAccessible(true);
+
+        Class<?> fieldType = field.getType();
+
+        if (Ref.class.isAssignableFrom(fieldType)) {
+            java.lang.reflect.Type genericType = field.getGenericType();
+            if (genericType instanceof ParameterizedType pt) {
+                Class<?> refTargetClass = (Class<?>) pt.getActualTypeArguments()[0];
+                UUID refId = value instanceof UUID u ? u : UUID.fromString(value.toString());
+                field.set(target, Ref.of(refTargetClass, refId));
+            }
+        } else if (fieldType == BigDecimal.class) {
+            field.set(target, value instanceof BigDecimal bd ? bd : new BigDecimal(value.toString()));
+        } else if (fieldType == String.class) {
+            field.set(target, value.toString());
+        } else if (fieldType == int.class || fieldType == Integer.class) {
+            field.set(target, value instanceof Number n ? n.intValue() : Integer.parseInt(value.toString()));
+        } else if (fieldType == long.class || fieldType == Long.class) {
+            field.set(target, value instanceof Number n ? n.longValue() : Long.parseLong(value.toString()));
+        } else if (fieldType == double.class || fieldType == Double.class) {
+            field.set(target, value instanceof Number n ? n.doubleValue() : Double.parseDouble(value.toString()));
+        } else if (fieldType == boolean.class || fieldType == Boolean.class) {
+            field.set(target, Boolean.TRUE.equals(value));
+        } else if (fieldType == LocalDate.class) {
+            field.set(target, value instanceof LocalDate ld ? ld : LocalDate.parse(value.toString()));
+        } else if (fieldType == LocalDateTime.class) {
+            field.set(target, value instanceof LocalDateTime ldt ? ldt : LocalDateTime.parse(value.toString()));
+        } else if (fieldType == UUID.class) {
+            field.set(target, value instanceof UUID u ? u : UUID.fromString(value.toString()));
+        } else {
+            field.set(target, value);
+        }
+    }
+
+    private Field findField(Class<?> clazz, String name) {
+        Class<?> current = clazz;
+        while (current != null && current != Object.class) {
+            try {
+                return current.getDeclaredField(name);
+            } catch (NoSuchFieldException e) {
+                current = current.getSuperclass();
+            }
+        }
+        return null;
     }
 
     @DeleteMapping("/{name}/{id}")

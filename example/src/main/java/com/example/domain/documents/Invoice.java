@@ -2,8 +2,10 @@ package com.example.domain.documents;
 
 import com.example.domain.registers.SalesRegister;
 import com.onec.annotations.Attribute;
+import com.onec.annotations.DashboardWidget;
 import com.onec.annotations.Document;
 import com.onec.annotations.TabularSection;
+import com.onec.annotations.UiHint;
 import com.onec.lifecycle.BeforeWriteHandler;
 import com.onec.lifecycle.Postable;
 import com.onec.model.DocumentObject;
@@ -17,14 +19,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Document(name = "Invoices", numberLength = 11)
+@DashboardWidget(title = "Invoice Calendar", type = "calendar", order = 5, width = "1/3",
+        dateField = "_date", titleField = "customer")
 @Getter
 @Setter
 public class Invoice extends DocumentObject implements BeforeWriteHandler, Postable {
 
     @Attribute(length = 200)
+    @UiHint(order = 0)
     private String customer;
 
     @Attribute(precision = 15, scale = 2)
+    @UiHint(order = 1, visibleInForm = false)
     private BigDecimal total;
 
     @TabularSection(name = "items")

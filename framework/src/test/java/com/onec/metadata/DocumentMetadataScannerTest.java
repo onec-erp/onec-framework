@@ -23,7 +23,7 @@ class DocumentMetadataScannerTest {
         DocumentDescriptor descriptor = scanner.scanDocument(TestInvoice.class);
 
         assertThat(descriptor.logicalName()).isEqualTo("TestInvoices");
-        assertThat(descriptor.tableName()).isEqualTo("_document_TestInvoices");
+        assertThat(descriptor.tableName()).isEqualTo("document_test_invoices");
         assertThat(descriptor.numberLength()).isEqualTo(11);
         assertThat(descriptor.javaClass()).isEqualTo(TestInvoice.class);
     }
@@ -49,7 +49,7 @@ class DocumentMetadataScannerTest {
         TabularSectionDescriptor items = descriptor.tabularSections().get(0);
         assertThat(items.name()).isEqualTo("items");
         assertThat(items.fieldName()).isEqualTo("items");
-        assertThat(items.tableName()).isEqualTo("_document_TestInvoices_items");
+        assertThat(items.tableName()).isEqualTo("document_test_invoices_items");
         assertThat(items.rowClass()).isEqualTo(TestInvoiceLine.class);
         assertThat(items.attributes()).hasSize(3);
 

@@ -25,7 +25,7 @@ public class JdbcNumberGenerator implements NumberGenerator {
     private String nextValue(String entityName, int length) {
         return jdbi.inTransaction(handle -> {
             var existing = handle.createQuery(
-                            "SELECT last_value FROM _onec_sequences WHERE entity_name = :name FOR UPDATE")
+                            "SELECT last_value FROM onec_sequences WHERE entity_name = :name FOR UPDATE")
                     .bind("name", entityName)
                     .mapTo(Long.class)
                     .findOne();
@@ -33,13 +33,13 @@ public class JdbcNumberGenerator implements NumberGenerator {
             long next;
             if (existing.isPresent()) {
                 next = existing.get() + 1;
-                handle.createUpdate("UPDATE _onec_sequences SET last_value = :val WHERE entity_name = :name")
+                handle.createUpdate("UPDATE onec_sequences SET last_value = :val WHERE entity_name = :name")
                         .bind("val", next)
                         .bind("name", entityName)
                         .execute();
             } else {
                 next = 1;
-                handle.createUpdate("INSERT INTO _onec_sequences (entity_name, last_value) VALUES (:name, :val)")
+                handle.createUpdate("INSERT INTO onec_sequences (entity_name, last_value) VALUES (:name, :val)")
                         .bind("name", entityName)
                         .bind("val", next)
                         .execute();

@@ -6,8 +6,15 @@ export interface AttributeMeta {
   length: number;
   required: boolean;
   isRef: boolean;
+  refTarget?: string;
   precision: number;
   scale: number;
+  visibleInList: boolean;
+  visibleInForm: boolean;
+  visibleInDetail: boolean;
+  order: number;
+  group: string;
+  widthHint: string;
 }
 
 export interface TabularSectionMeta {
@@ -21,6 +28,8 @@ export interface CatalogMeta {
   tableName: string;
   codeLength: number;
   attributes: AttributeMeta[];
+  section?: string;
+  sectionOrder?: number;
 }
 
 export interface DocumentMeta {
@@ -29,6 +38,8 @@ export interface DocumentMeta {
   numberLength: number;
   attributes: AttributeMeta[];
   tabularSections: TabularSectionMeta[];
+  section?: string;
+  sectionOrder?: number;
 }
 
 export interface RegisterMeta {
@@ -37,11 +48,26 @@ export interface RegisterMeta {
   type: "BALANCE" | "TURNOVER";
   dimensions: AttributeMeta[];
   resources: AttributeMeta[];
+  section?: string;
+  sectionOrder?: number;
 }
 
 export interface AppConfig {
   readOnly: boolean;
   basePath: string;
+}
+
+export interface DashboardWidgetMeta {
+  title: string;
+  widgetType: string;
+  order: number;
+  width: string;
+  entityType: string;
+  entityName: string;
+  maxItems: number;
+  dateField: string;
+  titleField: string;
+  extraConfig: Record<string, string>;
 }
 
 export type EntityRecord = Record<string, unknown>;
