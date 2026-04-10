@@ -11,6 +11,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import com.example.domain.enumerations.UnitOfMeasure;
+
 import java.math.BigDecimal;
 
 @Catalog(name = "Products", codeLength = 11)
@@ -29,7 +31,7 @@ public class Product extends CatalogObject {
     @UiHint(order = 1)
     private BigDecimal unitPrice;
 
-    @Attribute(length = 25)
+    @Attribute(displayName = "Unit of Measure")
     @UiHint(order = 2)
-    private String unit;
+    private UnitOfMeasure unit;
 }

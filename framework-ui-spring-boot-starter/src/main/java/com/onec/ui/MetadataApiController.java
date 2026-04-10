@@ -127,6 +127,22 @@ public class MetadataApiController {
             map.put("order", a.order());
             map.put("group", a.group());
             map.put("widthHint", a.widthHint());
+            boolean isEnum = a.javaType().isEnum();
+            map.put("isEnum", isEnum);
+            if (isEnum) {
+                EnumerationDescriptor enumDesc = registry.allEnumerations().stream()
+                        .filter(e -> e.javaClass().equals(a.javaType()))
+                        .findFirst().orElse(null);
+                if (enumDesc != null) {
+                    map.put("enumName", enumDesc.logicalName());
+                    map.put("enumValues", enumDesc.values().stream().map(v -> {
+                        Map<String, Object> vm = new LinkedHashMap<>();
+                        vm.put("name", v.name());
+                        vm.put("id", v.id().toString());
+                        return vm;
+                    }).toList());
+                }
+            }
             return map;
         }).toList();
     }

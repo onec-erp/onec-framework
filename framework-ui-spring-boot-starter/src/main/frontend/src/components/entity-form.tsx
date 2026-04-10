@@ -4,6 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RefSelect } from "@/components/ref-select";
 import { DatePicker } from "@/components/date-picker";
@@ -15,8 +22,9 @@ interface EntityFormProps {
   baseFields?: { label: string; key: string; type?: string }[];
   tabularSections?: TabularSectionMeta[];
   initial?: EntityRecord;
-  onSubmit: (data: EntityRecord) => void;
+  onSubmit: (data: EntityRecord, andPost?: boolean) => void;
   onCancel: () => void;
+  showSaveAndPost?: boolean;
 }
 
 function fieldType(attr: AttributeMeta): string {
@@ -49,6 +57,7 @@ export function EntityForm({
   initial = {},
   onSubmit,
   onCancel,
+  showSaveAndPost = false,
 }: EntityFormProps) {
   const { fieldRenderers } = useWidgetRegistry();
   const [data, setData] = useState<EntityRecord>({ ...initial });
@@ -99,6 +108,32 @@ export function EntityForm({
             value={data[attr.fieldName]}
             onChange={(v) => set(attr.fieldName, v)}
           />
+        </div>
+      );
+    }
+
+    if (attr.isEnum && attr.enumValues) {
+      return (
+        <div key={attr.fieldName} className={`grid gap-2 ${wc}`}>
+          <Label htmlFor={attr.fieldName}>
+            {attr.displayName}
+            {attr.required && <span className="text-destructive ml-1">*</span>}
+          </Label>
+          <Select
+            value={(data[attr.fieldName] as string) ?? ""}
+            onValueChange={(v) => set(attr.fieldName, v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={`Select ${attr.displayName}`} />
+            </SelectTrigger>
+            <SelectContent>
+              {attr.enumValues.map((ev) => (
+                <SelectItem key={ev.id} value={ev.id}>
+                  {ev.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       );
     }
@@ -234,6 +269,11 @@ export function EntityForm({
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
+        {showSaveAndPost && (
+          <Button type="button" variant="secondary" onClick={() => onSubmit(data, true)}>
+            Save & Post
+          </Button>
+        )}
         <Button type="submit">Save</Button>
       </div>
     </form>

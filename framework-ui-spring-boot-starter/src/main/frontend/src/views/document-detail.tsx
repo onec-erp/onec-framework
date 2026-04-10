@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
-import { toSnakeCase } from "@/lib/utils";
+import { toSnakeCase, displayValue } from "@/lib/utils";
 import type { DocumentMeta, EntityRecord } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -121,7 +121,7 @@ export function DocumentDetailView() {
             {detailAttrs.map((a) => (
               <div key={a.fieldName} className="space-y-1">
                 <dt className="text-xs text-muted-foreground">{a.displayName}</dt>
-                <dd>{String(doc[a.columnName] ?? "—")}</dd>
+                <dd>{displayValue(a, doc[a.columnName], doc) || "—"}</dd>
               </div>
             ))}
           </dl>
@@ -169,7 +169,7 @@ export function DocumentDetailView() {
                             <TableCell>{(row._line_number as number) ?? i + 1}</TableCell>
                             {ts.attributes.map((a) => (
                               <TableCell key={a.fieldName}>
-                                {String(row[a.columnName] ?? "")}
+                                {displayValue(a, row[a.columnName], row)}
                               </TableCell>
                             ))}
                           </TableRow>

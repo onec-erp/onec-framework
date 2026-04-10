@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { toSnakeCase } from "@/lib/utils";
+import { toSnakeCase, displayValue } from "@/lib/utils";
 import type { RegisterMeta, EntityRecord } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -112,7 +112,7 @@ export function RegisterReportView() {
                         <TableRow key={i}>
                           {allColumns.map((c) => (
                             <TableCell key={c.fieldName}>
-                              {String(row[c.columnName] ?? "")}
+                              {displayValue(c, row[c.columnName], row)}
                             </TableCell>
                           ))}
                         </TableRow>
@@ -171,7 +171,7 @@ export function RegisterReportView() {
                         </TableCell>
                         {allColumns.map((c) => (
                           <TableCell key={c.fieldName}>
-                            {String(row[c.columnName] ?? "")}
+                            {displayValue(c, row[c.columnName], row)}
                           </TableCell>
                         ))}
                       </TableRow>
@@ -233,7 +233,7 @@ export function RegisterReportView() {
                       <TableRow key={i}>
                         {allColumns.map((c) => (
                           <TableCell key={c.fieldName}>
-                            {String(row[c.columnName] ?? "")}
+                            {displayValue(c, row[c.columnName], row)}
                           </TableCell>
                         ))}
                       </TableRow>

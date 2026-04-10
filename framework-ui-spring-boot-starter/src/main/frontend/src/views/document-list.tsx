@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Plus, Trash2, Eye, FileText } from "lucide-react";
 import { api } from "@/lib/api";
-import { toSnakeCase } from "@/lib/utils";
+import { toSnakeCase, displayValue } from "@/lib/utils";
 import type { DocumentMeta, EntityRecord } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,12 +32,14 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonTable } from "@/components/skeleton-table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DeleteDialog } from "@/components/delete-dialog";
 
 export function DocumentListView() {
   const { name } = useParams<{ name: string }>();
   const [meta, setMeta] = useState<DocumentMeta | null>(null);
   const [items, setItems] = useState<EntityRecord[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const load = () => {
     if (!name) return;
@@ -53,17 +55,20 @@ export function DocumentListView() {
     load();
   }, [name]);
 
-  const handleCreate = async (data: EntityRecord) => {
+  const handleCreate = async (data: EntityRecord, andPost?: boolean) => {
     if (!name) return;
-    await api.createDocument(name, data);
+    const created = await api.createDocument(name, data);
+    if (andPost && created?._id) {
+      await api.postDocument(name, created._id as string);
+    }
     setDialogOpen(false);
     load();
   };
 
-  const handleDelete = async (id: string) => {
-    if (!name || !meta) return;
-    if (!window.confirm(`Delete this ${meta.name}?`)) return;
-    await api.deleteDocument(name, id);
+  const handleDelete = async () => {
+    if (!name || !deleteTarget) return;
+    await api.deleteDocument(name, deleteTarget);
+    setDeleteTarget(null);
     load();
   };
 
@@ -140,7 +145,7 @@ export function DocumentListView() {
                   </TableCell>
                   {listAttrs.map((a) => (
                     <TableCell key={a.fieldName}>
-                      {String(item[a.columnName] ?? "")}
+                      {displayValue(a, item[a.columnName], item)}
                     </TableCell>
                   ))}
                   <TableCell>
@@ -161,7 +166,7 @@ export function DocumentListView() {
                             <Button
                               size="icon"
                               variant="ghost"
-                              onClick={() => handleDelete(item._id as string)}
+                              onClick={() => setDeleteTarget(item._id as string)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -192,10 +197,19 @@ export function DocumentListView() {
             attributes={meta.attributes}
             tabularSections={meta.tabularSections}
             onSubmit={handleCreate}
+            showSaveAndPost
             onCancel={() => setDialogOpen(false)}
           />
         </DialogContent>
       </Dialog>
+
+      <DeleteDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        onConfirm={handleDelete}
+        title={`Delete ${meta.name}`}
+        description="This will mark the document for deletion. Are you sure?"
+      />
     </div>
   );
 }

@@ -29,6 +29,7 @@ public class GenericDocumentController {
     private final Jdbi jdbi;
     private final UiProperties properties;
     private final PostingService postingService;
+    private final RefResolver refResolver;
 
     public GenericDocumentController(MetadataRegistry registry, Jdbi jdbi, UiProperties properties,
                                       PostingService postingService) {
@@ -36,6 +37,7 @@ public class GenericDocumentController {
         this.jdbi = jdbi;
         this.properties = properties;
         this.postingService = postingService;
+        this.refResolver = new RefResolver(registry, jdbi);
     }
 
     @GetMapping("/{name}")
@@ -51,12 +53,14 @@ public class GenericDocumentController {
         }
         sql.append(" ORDER BY _date DESC");
 
-        return jdbi.withHandle(h -> {
+        List<Map<String, Object>> rows = jdbi.withHandle(h -> {
             var query = h.createQuery(sql.toString());
             if (from != null) query.bind("from", from);
             if (to != null) query.bind("to", to);
             return query.mapToMap().list();
         });
+        refResolver.resolveAttributes(rows, desc.attributes());
+        return rows;
     }
 
     @GetMapping("/{name}/{id}")
@@ -70,6 +74,8 @@ public class GenericDocumentController {
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))
         );
 
+        refResolver.resolveAttributes(List.of(doc), desc.attributes());
+
         // Load tabular sections
         for (TabularSectionDescriptor ts : desc.tabularSections()) {
             List<Map<String, Object>> rows = jdbi.withHandle(h ->
@@ -79,6 +85,7 @@ public class GenericDocumentController {
                             .mapToMap()
                             .list()
             );
+            refResolver.resolveAttributes(rows, ts.attributes());
             doc.put(ts.name(), rows);
         }
 

@@ -18,33 +18,39 @@ public class GenericCatalogController {
     private final MetadataRegistry registry;
     private final Jdbi jdbi;
     private final UiProperties properties;
+    private final RefResolver refResolver;
 
     public GenericCatalogController(MetadataRegistry registry, Jdbi jdbi, UiProperties properties) {
         this.registry = registry;
         this.jdbi = jdbi;
         this.properties = properties;
+        this.refResolver = new RefResolver(registry, jdbi);
     }
 
     @GetMapping("/{name}")
     public List<Map<String, Object>> list(@PathVariable String name) {
         CatalogDescriptor desc = findCatalog(name);
-        return jdbi.withHandle(h ->
+        List<Map<String, Object>> rows = jdbi.withHandle(h ->
                 h.createQuery("SELECT * FROM " + desc.tableName())
                         .mapToMap()
                         .list()
         );
+        refResolver.resolveAttributes(rows, desc.attributes());
+        return rows;
     }
 
     @GetMapping("/{name}/{id}")
     public Map<String, Object> get(@PathVariable String name, @PathVariable UUID id) {
         CatalogDescriptor desc = findCatalog(name);
-        return jdbi.withHandle(h ->
+        Map<String, Object> row = jdbi.withHandle(h ->
                 h.createQuery("SELECT * FROM " + desc.tableName() + " WHERE _id = :id")
                         .bind("id", id)
                         .mapToMap()
                         .findOne()
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))
         );
+        refResolver.resolveAttributes(List.of(row), desc.attributes());
+        return row;
     }
 
     @PostMapping("/{name}")

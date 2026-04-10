@@ -1,3 +1,8 @@
+export interface EnumValue {
+  name: string;
+  id: string;
+}
+
 export interface AttributeMeta {
   fieldName: string;
   displayName: string;
@@ -7,6 +12,9 @@ export interface AttributeMeta {
   required: boolean;
   isRef: boolean;
   refTarget?: string;
+  isEnum: boolean;
+  enumName?: string;
+  enumValues?: EnumValue[];
   precision: number;
   scale: number;
   visibleInList: boolean;

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Plus, Trash2, Pencil, BookOpen } from "lucide-react";
 import { api } from "@/lib/api";
-import { toSnakeCase } from "@/lib/utils";
+import { toSnakeCase, displayValue } from "@/lib/utils";
 import type { CatalogMeta, EntityRecord } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +31,7 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonTable } from "@/components/skeleton-table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DeleteDialog } from "@/components/delete-dialog";
 
 export function CatalogListView() {
   const { name } = useParams<{ name: string }>();
@@ -38,6 +39,7 @@ export function CatalogListView() {
   const [items, setItems] = useState<EntityRecord[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<EntityRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const load = () => {
     if (!name) return;
@@ -65,10 +67,10 @@ export function CatalogListView() {
     load();
   };
 
-  const handleDelete = async (id: string) => {
-    if (!name || !meta) return;
-    if (!window.confirm(`Delete this ${meta.name}?`)) return;
-    await api.deleteCatalogItem(name, id);
+  const handleDelete = async () => {
+    if (!name || !deleteTarget) return;
+    await api.deleteCatalogItem(name, deleteTarget);
+    setDeleteTarget(null);
     load();
   };
 
@@ -135,7 +137,7 @@ export function CatalogListView() {
                   <TableCell>{item._description as string}</TableCell>
                   {listAttrs.map((a) => (
                     <TableCell key={a.fieldName}>
-                      {String(item[a.columnName] ?? "")}
+                      {displayValue(a, item[a.columnName], item)}
                     </TableCell>
                   ))}
                   <TableCell>
@@ -161,7 +163,7 @@ export function CatalogListView() {
                             <Button
                               size="icon"
                               variant="ghost"
-                              onClick={() => handleDelete(item._id as string)}
+                              onClick={() => setDeleteTarget(item._id as string)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -208,6 +210,14 @@ export function CatalogListView() {
           />
         </DialogContent>
       </Dialog>
+
+      <DeleteDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        onConfirm={handleDelete}
+        title={`Delete ${meta.name}`}
+        description="This will mark the record for deletion. Are you sure?"
+      />
     </div>
   );
 }

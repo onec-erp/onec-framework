@@ -3,6 +3,13 @@ import type { TabularSectionMeta, AttributeMeta, EntityRecord } from "@/lib/type
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { RefSelect } from "@/components/ref-select";
 import { DatePicker } from "@/components/date-picker";
 import {
@@ -44,6 +51,7 @@ function fieldType(attr: AttributeMeta): string {
 }
 
 export function TabularSectionEditor({ section, rows, onChange }: TabularSectionEditorProps) {
+  const visibleAttrs = section.attributes.filter((a) => a.visibleInForm !== false);
   const updateRow = (index: number, key: string, value: unknown) => {
     const updated = rows.map((row, i) =>
       i === index ? { ...row, [key]: value } : row
@@ -60,6 +68,26 @@ export function TabularSectionEditor({ section, rows, onChange }: TabularSection
   };
 
   const renderCell = (attr: AttributeMeta, row: EntityRecord, rowIndex: number) => {
+    if (attr.isEnum && attr.enumValues) {
+      return (
+        <Select
+          value={(row[attr.fieldName] as string) ?? ""}
+          onValueChange={(v) => updateRow(rowIndex, attr.fieldName, v)}
+        >
+          <SelectTrigger className="min-w-[120px]">
+            <SelectValue placeholder={`Select`} />
+          </SelectTrigger>
+          <SelectContent>
+            {attr.enumValues.map((ev) => (
+              <SelectItem key={ev.id} value={ev.id}>
+                {ev.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
     if (attr.isRef && attr.refTarget) {
       return (
         <RefSelect
@@ -115,7 +143,7 @@ export function TabularSectionEditor({ section, rows, onChange }: TabularSection
           <TableHeader>
             <TableRow>
               <TableHead className="w-[50px]">#</TableHead>
-              {section.attributes.map((a) => (
+              {visibleAttrs.map((a) => (
                 <TableHead key={a.fieldName}>{a.displayName}</TableHead>
               ))}
               <TableHead className="w-[50px]" />
@@ -125,7 +153,7 @@ export function TabularSectionEditor({ section, rows, onChange }: TabularSection
             {rows.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={2 + section.attributes.length}
+                  colSpan={2 + visibleAttrs.length}
                   className="text-center text-muted-foreground py-6"
                 >
                   No rows. Click "Add Row" to start.
@@ -135,7 +163,7 @@ export function TabularSectionEditor({ section, rows, onChange }: TabularSection
             {rows.map((row, i) => (
               <TableRow key={i}>
                 <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                {section.attributes.map((attr) => (
+                {visibleAttrs.map((attr) => (
                   <TableCell key={attr.fieldName}>
                     {renderCell(attr, row, i)}
                   </TableCell>

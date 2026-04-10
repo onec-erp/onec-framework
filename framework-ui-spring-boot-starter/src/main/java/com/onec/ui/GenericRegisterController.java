@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -20,10 +21,12 @@ public class GenericRegisterController {
 
     private final MetadataRegistry registry;
     private final Jdbi jdbi;
+    private final RefResolver refResolver;
 
     public GenericRegisterController(MetadataRegistry registry, Jdbi jdbi) {
         this.registry = registry;
         this.jdbi = jdbi;
+        this.refResolver = new RefResolver(registry, jdbi);
     }
 
     @GetMapping("/{name}/movements")
@@ -37,12 +40,14 @@ public class GenericRegisterController {
         if (to != null) sql.append(" AND _period <= :to");
         sql.append(" ORDER BY _period DESC");
 
-        return jdbi.withHandle(h -> {
+        List<Map<String, Object>> rows = jdbi.withHandle(h -> {
             var query = h.createQuery(sql.toString());
             if (from != null) query.bind("from", from);
             if (to != null) query.bind("to", to);
             return query.mapToMap().list();
         });
+        resolveAll(desc, rows);
+        return rows;
     }
 
     @GetMapping("/{name}/balance")
@@ -64,7 +69,7 @@ public class GenericRegisterController {
             sql.append(" WHERE ").append(String.join(" AND ", conditions));
         }
 
-        return jdbi.withHandle(h -> {
+        List<Map<String, Object>> rows = jdbi.withHandle(h -> {
             var query = h.createQuery(sql.toString());
             for (AttributeDescriptor dim : desc.dimensions()) {
                 if (filters.containsKey(dim.fieldName())) {
@@ -73,6 +78,8 @@ public class GenericRegisterController {
             }
             return query.mapToMap().list();
         });
+        resolveAll(desc, rows);
+        return rows;
     }
 
     @GetMapping("/{name}/turnover")
@@ -108,7 +115,7 @@ public class GenericRegisterController {
             sql.append(" GROUP BY ").append(dimColumns);
         }
 
-        return jdbi.withHandle(h -> {
+        List<Map<String, Object>> rows = jdbi.withHandle(h -> {
             var query = h.createQuery(sql.toString())
                     .bind("from", from)
                     .bind("to", to);
@@ -120,6 +127,15 @@ public class GenericRegisterController {
             }
             return query.mapToMap().list();
         });
+        resolveAll(desc, rows);
+        return rows;
+    }
+
+    private void resolveAll(AccumulationRegisterDescriptor desc, List<Map<String, Object>> rows) {
+        List<AttributeDescriptor> all = new ArrayList<>();
+        all.addAll(desc.dimensions());
+        all.addAll(desc.resources());
+        refResolver.resolveAttributes(rows, all);
     }
 
     private AccumulationRegisterDescriptor findRegister(String name) {
