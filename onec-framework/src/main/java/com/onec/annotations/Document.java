@@ -1,0 +1,24 @@
+package com.onec.annotations;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface Document {
+
+    String name();
+
+    /** Stable DB table name. When empty, derived from {@link #name()}. */
+    String tableName() default "";
+
+    int numberLength() default 11;
+
+    boolean autoNumber() default true;
+
+    String numberPrefix() default "";
+
+    String context() default "";
+}

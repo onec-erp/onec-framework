@@ -1,0 +1,18 @@
+package com.onec.metadata;
+
+import java.util.List;
+
+public record CatalogDescriptor(
+        String logicalName,
+        String tableName,
+        Class<?> javaClass,
+        int codeLength,
+        boolean hierarchical,
+        boolean autoNumber,
+        String codePrefix,
+        String context,
+        List<String> readRoles,
+        List<String> writeRoles,
+        List<AttributeDescriptor> attributes
+) {
+}

@@ -1,3 +1,12 @@
 rootProject.name = "onec-framework"
 
-include("framework", "framework-spring-boot-starter", "framework-ui-spring-boot-starter", "example")
+include(
+    "onec-framework",
+    "onec-framework-spring-boot-starter",
+    "onec-ui-spring-boot-starter",
+    "onec-auth-spring-boot-starter",
+    "onec-kafka-starter",
+    "onec-print-starter",
+    "onec-mail-starter",
+    "example"
+)

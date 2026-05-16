@@ -5,7 +5,29 @@ spring:
   datasource:
     url: jdbc:h2:file:./data/example;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
+  mail:
+    host: localhost
+    port: 1025
 server:
   error:
     include-stacktrace: always
     include-message: always
+onec:
+  auth:
+    users:
+      - username: admin
+        password: admin
+        roles: [ADMIN]
+      - username: rentals
+        password: rentals
+        roles: [RENTALS]
+      - username: finance
+        password: finance
+        roles: [FINANCE]
+  mail:
+    enabled: true
+    provider: smtp
+    default-from: "rentals@example.local"
+    use-outbox: true
+  print:
+    enabled: true

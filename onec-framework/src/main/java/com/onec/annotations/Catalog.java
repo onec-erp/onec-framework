@@ -1,0 +1,26 @@
+package com.onec.annotations;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface Catalog {
+
+    String name();
+
+    /** Stable DB table name. When empty, derived from {@link #name()}. */
+    String tableName() default "";
+
+    int codeLength() default 9;
+
+    boolean hierarchical() default false;
+
+    boolean autoNumber() default true;
+
+    String codePrefix() default "";
+
+    String context() default "";
+}

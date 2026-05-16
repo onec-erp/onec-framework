@@ -1,0 +1,143 @@
+package com.example.domain.documents;
+
+import com.example.domain.catalogs.Client;
+import com.example.domain.catalogs.Employee;
+import com.example.domain.catalogs.Property;
+import com.example.domain.enumerations.BookingChannel;
+import com.example.domain.enumerations.BookingStatus;
+import com.example.domain.registers.OccupancyRegister;
+import com.onec.annotations.AccessControl;
+import com.onec.annotations.Attribute;
+import com.onec.annotations.BusinessRule;
+import com.onec.annotations.DashboardWidget;
+import com.onec.annotations.Document;
+import com.onec.annotations.TabularSection;
+import com.onec.annotations.UiHint;
+import com.onec.annotations.UiSection;
+import com.onec.lifecycle.BeforeWriteHandler;
+import com.onec.lifecycle.Postable;
+import com.onec.mail.MailTemplate;
+import com.onec.model.DocumentObject;
+import com.onec.posting.PostingContext;
+import com.onec.types.Ref;
+
+import lombok.Getter;
+import lombok.Setter;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+
+@Document(name = "Bookings", numberPrefix = "B-", numberLength = 14, context = "Rentals")
+@AccessControl(readRoles = {"ADMIN", "RENTALS"}, writeRoles = {"ADMIN", "RENTALS"})
+@UiSection(value = "Rentals", order = 2)
+@BusinessRule(name = "property-required", expression = "property != null")
+@MailTemplate(name = "booking-confirmed",
+        subject = "Your booking is confirmed",
+        html = true)
+@DashboardWidget(title = "Booking Calendar", type = "calendar", order = 0, width = "1/2",
+        dateField = "checkIn", titleField = "summary")
+@DashboardWidget(title = "Upcoming Bookings", type = "list", order = 1, width = "1/2", maxItems = 8)
+@Getter
+@Setter
+public class Booking extends DocumentObject implements BeforeWriteHandler, Postable {
+
+    @Attribute(required = true)
+    @UiHint(order = 0)
+    private Ref<Property> property;
+
+    @Attribute
+    @UiHint(order = 1)
+    private BookingStatus status;
+
+    @Attribute
+    @UiHint(order = 2)
+    private BookingChannel channel;
+
+    @Attribute(displayName = "Check-in", required = true)
+    @UiHint(order = 3)
+    private LocalDate checkIn;
+
+    @Attribute(displayName = "Check-out", required = true)
+    @UiHint(order = 4)
+    private LocalDate checkOut;
+
+    @Attribute(displayName = "Adults")
+    @UiHint(order = 5)
+    private Integer adults;
+
+    @Attribute(displayName = "Children")
+    @UiHint(order = 6)
+    private Integer children;
+
+    @Attribute(displayName = "Nights")
+    @UiHint(order = 7, visibleInForm = false)
+    private Integer nights;
+
+    @Attribute(displayName = "Avg. price / night", precision = 12, scale = 2)
+    @UiHint(order = 8)
+    private BigDecimal nightRate;
+
+    @Attribute(displayName = "Cleaning fee", precision = 12, scale = 2)
+    @UiHint(order = 9)
+    private BigDecimal cleaningFee;
+
+    @Attribute(displayName = "Total (gross)", precision = 14, scale = 2)
+    @UiHint(order = 10, visibleInForm = false)
+    private BigDecimal totalGross;
+
+    @Attribute(length = 200)
+    @UiHint(order = 11, visibleInForm = false)
+    private String summary;
+
+    @Attribute(length = 1000)
+    @UiHint(order = 20)
+    private String notes;
+
+    @Attribute
+    @UiHint(order = 12)
+    private Ref<Client> primaryClient;
+
+    @Attribute(displayName = "Assigned to")
+    @UiHint(order = 13)
+    private Ref<Employee> assignedTo;
+
+    @TabularSection(name = "guests")
+    private List<Guest> guests = new ArrayList<>();
+
+    @Override
+    public void beforeWrite() {
+        if (checkIn != null && checkOut != null && checkOut.isAfter(checkIn)) {
+            this.nights = (int) ChronoUnit.DAYS.between(checkIn, checkOut);
+        } else {
+            this.nights = 0;
+        }
+        BigDecimal rate = nightRate != null ? nightRate : BigDecimal.ZERO;
+        BigDecimal cleaning = cleaningFee != null ? cleaningFee : BigDecimal.ZERO;
+        this.totalGross = rate.multiply(BigDecimal.valueOf(nights)).add(cleaning)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        // status left as-is; null means "no explicit lifecycle state yet"
+
+        // summary used by calendar/list widgets
+        this.summary = (property != null ? "" : "") + (checkIn != null ? checkIn.toString() : "")
+                + (nights != null && nights > 0 ? " (" + nights + "n)" : "");
+    }
+
+    @Override
+    public void handlePosting(PostingContext context) {
+        if (status == BookingStatus.CANCELED) {
+            return;
+        }
+        var occupancy = context.movements(OccupancyRegister.class);
+        occupancy.addReceipt(r -> {
+            r.setProperty(property);
+            r.setNights(nights == null ? BigDecimal.ZERO : BigDecimal.valueOf(nights));
+            r.setAdults(adults == null ? BigDecimal.ZERO : BigDecimal.valueOf(adults));
+            r.setChildren(children == null ? BigDecimal.ZERO : BigDecimal.valueOf(children));
+        });
+    }
+}
