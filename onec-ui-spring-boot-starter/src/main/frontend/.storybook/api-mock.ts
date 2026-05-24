@@ -97,21 +97,21 @@ const documentAttrs: AttributeMeta[] = [
 ];
 
 const catalogs: CatalogMeta[] = [
-  { name: "Products", tableName: "products", codeLength: 9, attributes: productAttrs, section: "Catalogs", sectionOrder: 0 },
-  { name: "Customers", tableName: "customers", codeLength: 9, attributes: productAttrs, section: "Catalogs", sectionOrder: 1 },
-  { name: "Warehouses", tableName: "warehouses", codeLength: 9, attributes: productAttrs, section: "Catalogs", sectionOrder: 2 },
+  { name: "Products", tableName: "products", codeLength: 9, attributes: productAttrs },
+  { name: "Customers", tableName: "customers", codeLength: 9, attributes: productAttrs },
+  { name: "Warehouses", tableName: "warehouses", codeLength: 9, attributes: productAttrs },
 ];
 
 const documents: DocumentMeta[] = [
-  { name: "GoodsReceipt", tableName: "goods_receipts", numberLength: 9, attributes: documentAttrs, tabularSections: [], section: "Documents", sectionOrder: 0 },
-  { name: "Invoice", tableName: "invoices", numberLength: 9, attributes: documentAttrs, tabularSections: [], section: "Documents", sectionOrder: 1 },
-  { name: "Sale", tableName: "sales", numberLength: 9, attributes: documentAttrs, tabularSections: [], section: "Documents", sectionOrder: 2 },
-  { name: "Booking", tableName: "bookings", numberLength: 9, attributes: documentAttrs, tabularSections: [], section: "Documents", sectionOrder: 3 },
+  { name: "GoodsReceipt", tableName: "goods_receipts", numberLength: 9, attributes: documentAttrs, tabularSections: [] },
+  { name: "Invoice", tableName: "invoices", numberLength: 9, attributes: documentAttrs, tabularSections: [] },
+  { name: "Sale", tableName: "sales", numberLength: 9, attributes: documentAttrs, tabularSections: [] },
+  { name: "Booking", tableName: "bookings", numberLength: 9, attributes: documentAttrs, tabularSections: [] },
 ];
 
 const registers: RegisterMeta[] = [
-  { name: "Stock", tableName: "stock_register", type: "BALANCE", dimensions: [], resources: [], section: "Registers", sectionOrder: 0 },
-  { name: "Sales", tableName: "sales_register", type: "TURNOVER", dimensions: [], resources: [], section: "Registers", sectionOrder: 1 },
+  { name: "Stock", tableName: "stock_register", type: "BALANCE", dimensions: [], resources: [] },
+  { name: "Sales", tableName: "sales_register", type: "TURNOVER", dimensions: [], resources: [] },
 ];
 
 const dashboardWidgets: DashboardWidgetMeta[] = [

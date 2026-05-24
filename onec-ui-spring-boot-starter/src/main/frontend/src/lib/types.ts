@@ -37,8 +37,6 @@ export interface CatalogMeta {
   tableName: string;
   codeLength: number;
   attributes: AttributeMeta[];
-  section?: string;
-  sectionOrder?: number;
 }
 
 export interface DocumentMeta {
@@ -47,8 +45,6 @@ export interface DocumentMeta {
   numberLength: number;
   attributes: AttributeMeta[];
   tabularSections: TabularSectionMeta[];
-  section?: string;
-  sectionOrder?: number;
 }
 
 export interface RegisterMeta {
@@ -57,8 +53,6 @@ export interface RegisterMeta {
   type: "BALANCE" | "TURNOVER";
   dimensions: AttributeMeta[];
   resources: AttributeMeta[];
-  section?: string;
-  sectionOrder?: number;
 }
 
 export interface AppConfig {

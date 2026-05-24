@@ -1,6 +1,5 @@
 package com.onec.ui;
 
-import com.onec.annotations.UiSection;
 import com.onec.metadata.*;
 import com.onec.ui.FieldHint;
 import com.onec.ui.UiLayout;
@@ -139,7 +138,6 @@ public class MetadataApiController {
         Map<String, FieldHint> hints = layoutResolver.resolveFieldHints(
                 uiLayout, "catalog", d.logicalName());
         map.put("attributes", describeAttributes(d.attributes(), hints));
-        addSectionInfo(map, d.javaClass());
         return map;
     }
 
@@ -165,7 +163,6 @@ public class MetadataApiController {
             tsMap.put("attributes", describeAttributes(ts.attributes(), Map.of()));
             return tsMap;
         }).toList());
-        addSectionInfo(map, d.javaClass());
         return map;
     }
 
@@ -181,14 +178,7 @@ public class MetadataApiController {
                 uiLayout, "register", d.logicalName());
         map.put("dimensions", describeAttributes(d.dimensions(), hints));
         map.put("resources", describeAttributes(d.resources(), hints));
-        addSectionInfo(map, d.javaClass());
         return map;
-    }
-
-    private void addSectionInfo(Map<String, Object> map, Class<?> javaClass) {
-        UiSection section = javaClass.getAnnotation(UiSection.class);
-        map.put("section", section != null ? section.value() : null);
-        map.put("sectionOrder", section != null ? section.order() : null);
     }
 
     private List<Map<String, Object>> describeAttributes(List<AttributeDescriptor> attrs,
