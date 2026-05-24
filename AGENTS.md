@@ -403,6 +403,8 @@ When a document affects another context, prefer emitting an event or writing to 
 
 Do not create premature microservices. Mark contexts first, then split when load, team ownership, or deployment needs justify it.
 
+Keep UI concerns out of domain classes. Sidebar placement, dashboard widgets, and per-field display hints belong in an `OneCUiConfigurer`, not on the entity itself. Do not add `@UiSection`, `@UiHint`, or `@DashboardWidget` to new code — they are deprecated.
+
 ## Code Patterns
 
 ### Catalog
@@ -512,6 +514,40 @@ Use `@BusinessRule` for simple validations that should be visible in the manifes
 public class Invoice extends DocumentObject {
 }
 ```
+
+### UI Layout And Field Hints
+
+UI configuration lives in a single `OneCUiConfigurer` bean, not on the entity. This keeps domain classes focused on business semantics and lets the same metadata drive future renderers.
+
+```java
+@Configuration
+public class UiConfig implements OneCUiConfigurer {
+    @Override
+    public void configure(UiLayoutBuilder layout) {
+        layout.section("Sales")
+                .order(0)
+                .icon("euro")
+                .catalog(Customer.class, c -> c
+                        .field("name").order(0)
+                        .field("taxId").order(1))
+                .document(Invoice.class, d -> d
+                        .field("customer").order(0)
+                        .field("total").order(10).hideInForm()
+                        .field("notes").order(20).widget("textarea"));
+
+        layout.widget("Recent invoices")
+                .type("list").order(0).width("1/2")
+                .document(Invoice.class)
+                .maxItems(8);
+    }
+}
+```
+
+Field-hint methods on `FieldHintBuilder`: `order(int)`, `group(String)`, `width(String)`, `widget(String)`, `hideInList()`, `hideInForm()`, `hideInDetail()`, plus explicit `visibleInList(bool)`/`visibleInForm(bool)`/`visibleInDetail(bool)`. Only set what differs from the default; unset values fall through.
+
+Widget DSL on `WidgetBuilder`: `.type(...)` accepts `count`, `list`, `calendar`, `kanban`, `chart`. Use `.dateField`, `.titleField`, `.config(key, value)`, `.maxItems`, `.width` to customize.
+
+Tabular section row classes (e.g. invoice lines) currently still take `@UiHint` on their fields. The DSL does not yet expose tabular-section field hints; that capability is planned.
 
 Supported lightweight expressions include:
 - `field != null`

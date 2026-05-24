@@ -4,7 +4,6 @@ import com.example.domain.catalogs.Property;
 import com.onec.annotations.AccumulationRegister;
 import com.onec.annotations.Dimension;
 import com.onec.annotations.Resource;
-import com.onec.annotations.UiSection;
 import com.onec.model.AccumulationRecord;
 import com.onec.model.AccumulationType;
 import com.onec.types.Ref;
@@ -15,7 +14,6 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 @AccumulationRegister(name = "Occupancy", type = AccumulationType.TURNOVER, context = "Rentals")
-@UiSection(value = "Reports", order = 7)
 @Getter
 @Setter
 public class OccupancyRegister extends AccumulationRecord {

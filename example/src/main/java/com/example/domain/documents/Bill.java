@@ -7,10 +7,7 @@ import com.example.domain.registers.RevenueRegister;
 import com.onec.annotations.AccessControl;
 import com.onec.annotations.Attribute;
 import com.onec.annotations.BusinessRule;
-import com.onec.annotations.DashboardWidget;
 import com.onec.annotations.Document;
-import com.onec.annotations.UiHint;
-import com.onec.annotations.UiSection;
 import com.onec.lifecycle.BeforeWriteHandler;
 import com.onec.lifecycle.Postable;
 import com.onec.model.DocumentObject;
@@ -32,46 +29,36 @@ import java.util.UUID;
  */
 @Document(name = "Bills", numberPrefix = "BILL-", numberLength = 14, context = "Rentals")
 @AccessControl(readRoles = {"ADMIN", "RENTALS", "FINANCE"}, writeRoles = {"ADMIN", "FINANCE"})
-@UiSection(value = "Finance", order = 0)
 @BusinessRule(name = "client-required", expression = "client != null")
 @BusinessRule(name = "gross-positive", expression = "gross > 0")
 @PrintTemplate(name = "bill", label = "Print Bill", format = PrintFormat.PDF)
-@DashboardWidget(title = "Recent Bills", type = "list", order = 3, width = "1/2", maxItems = 8)
 @Getter
 @Setter
 public class Bill extends DocumentObject implements BeforeWriteHandler, Postable {
 
     @Attribute(required = true)
-    @UiHint(order = 0)
     private Ref<Client> client;
 
     @Attribute
-    @UiHint(order = 1)
     private Ref<Property> property;
 
     /** Backing field for the linked Booking; stored as raw UUID to keep this document free of cyclic references. */
     @Attribute(displayName = "Booking ref")
-    @UiHint(order = 2)
     private UUID bookingRef;
 
     @Attribute(displayName = "Net (excl. IVA)", precision = 14, scale = 2)
-    @UiHint(order = 3)
     private BigDecimal net;
 
     @Attribute(displayName = "IVA %", precision = 5, scale = 2)
-    @UiHint(order = 4)
     private BigDecimal ivaPercent;
 
     @Attribute(displayName = "IVA amount", precision = 14, scale = 2)
-    @UiHint(order = 5, visibleInForm = false)
     private BigDecimal iva;
 
     @Attribute(displayName = "Total (incl. IVA)", precision = 14, scale = 2)
-    @UiHint(order = 6, visibleInForm = false)
     private BigDecimal gross;
 
     @Attribute(length = 1000)
-    @UiHint(order = 10)
     private String comments;
 
     @Override
