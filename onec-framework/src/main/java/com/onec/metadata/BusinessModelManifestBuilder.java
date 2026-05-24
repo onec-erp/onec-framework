@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -22,7 +23,23 @@ public class BusinessModelManifestBuilder {
         this.registry = registry;
     }
 
+    /**
+     * Build the manifest using {@code @DashboardWidget} annotations as the widget source.
+     *
+     * <p>Retained for backwards compatibility. New callers should prefer
+     * {@link #build(List)} and pass widgets resolved from {@code UiLayoutBuilder}
+     * so that the manifest stays consistent with {@code /api/ui/metadata/dashboard}.</p>
+     */
     public BusinessModelManifest build() {
+        return build(registry.allDashboardWidgets());
+    }
+
+    /**
+     * Build the manifest with an explicit widget source. Use this overload to
+     * pass widgets resolved from the configurer (see {@code UiLayoutResolver
+     * .resolveWidgets}) instead of scanning {@code @DashboardWidget}.
+     */
+    public BusinessModelManifest build(List<DashboardWidgetDescriptor> widgets) {
         return new BusinessModelManifest(
                 SCHEMA_VERSION,
                 registry.allCatalogs().stream()
@@ -49,7 +66,7 @@ public class BusinessModelManifestBuilder {
                         .sorted(Comparator.comparing(ConstantDescriptor::logicalName))
                         .map(this::constant)
                         .toList(),
-                registry.allDashboardWidgets().stream()
+                widgets.stream()
                         .sorted(Comparator.comparingInt(DashboardWidgetDescriptor::order)
                                 .thenComparing(DashboardWidgetDescriptor::title))
                         .map(this::dashboardWidget)

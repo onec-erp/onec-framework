@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public class UiLayoutBuilder {
 
@@ -73,13 +74,33 @@ public class UiLayoutBuilder {
             return this;
         }
 
+        public SectionBuilder catalog(Class<?> clazz, Consumer<EntityConfigBuilder> configurer) {
+            return entity("catalog", clazz, configurer);
+        }
+
         public SectionBuilder document(Class<?> clazz) {
             entities.add(new EntityRef("document", clazz));
             return this;
         }
 
+        public SectionBuilder document(Class<?> clazz, Consumer<EntityConfigBuilder> configurer) {
+            return entity("document", clazz, configurer);
+        }
+
         public SectionBuilder register(Class<?> clazz) {
             entities.add(new EntityRef("register", clazz));
+            return this;
+        }
+
+        public SectionBuilder register(Class<?> clazz, Consumer<EntityConfigBuilder> configurer) {
+            return entity("register", clazz, configurer);
+        }
+
+        private SectionBuilder entity(String type, Class<?> clazz,
+                                       Consumer<EntityConfigBuilder> configurer) {
+            EntityConfigBuilder cfg = new EntityConfigBuilder();
+            configurer.accept(cfg);
+            entities.add(new EntityRef(type, clazz, cfg.buildFieldHints()));
             return this;
         }
 
@@ -175,7 +196,16 @@ public class UiLayoutBuilder {
         }
     }
 
-    public record EntityRef(String type, Class<?> javaClass) {}
+    public record EntityRef(String type, Class<?> javaClass, Map<String, FieldHint> fieldHints) {
+        public EntityRef {
+            fieldHints = fieldHints == null ? Map.of() : Map.copyOf(fieldHints);
+        }
+
+        /** Convenience constructor for callers that don't provide field hints. */
+        public EntityRef(String type, Class<?> javaClass) {
+            this(type, javaClass, Map.of());
+        }
+    }
 
     public record WidgetConfig(
             String title,

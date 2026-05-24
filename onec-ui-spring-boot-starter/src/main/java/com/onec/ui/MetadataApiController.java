@@ -2,6 +2,7 @@ package com.onec.ui;
 
 import com.onec.annotations.UiSection;
 import com.onec.metadata.*;
+import com.onec.ui.FieldHint;
 import com.onec.ui.UiLayout;
 import com.onec.ui.UiLayoutResolver;
 
@@ -88,7 +89,11 @@ public class MetadataApiController {
 
     @GetMapping("/manifest")
     public BusinessModelManifest manifest(Principal principal) {
-        BusinessModelManifest manifest = new BusinessModelManifestBuilder(registry).build();
+        // Widgets are resolved from the configurer (UiLayoutBuilder) so the manifest
+        // stays consistent with /api/ui/metadata/dashboard. The resolver falls back
+        // to @DashboardWidget when no builder widgets are declared.
+        BusinessModelManifest manifest = new BusinessModelManifestBuilder(registry)
+                .build(layoutResolver.resolveWidgets(uiLayout));
         return new BusinessModelManifest(
                 manifest.schemaVersion(),
                 manifest.catalogs().stream()
@@ -131,7 +136,9 @@ public class MetadataApiController {
         map.put("context", d.context());
         map.put("readRoles", d.readRoles());
         map.put("writeRoles", d.writeRoles());
-        map.put("attributes", describeAttributes(d.attributes()));
+        Map<String, FieldHint> hints = layoutResolver.resolveFieldHints(
+                uiLayout, "catalog", d.logicalName());
+        map.put("attributes", describeAttributes(d.attributes(), hints));
         addSectionInfo(map, d.javaClass());
         return map;
     }
@@ -146,12 +153,16 @@ public class MetadataApiController {
         map.put("context", d.context());
         map.put("readRoles", d.readRoles());
         map.put("writeRoles", d.writeRoles());
-        map.put("attributes", describeAttributes(d.attributes()));
+        Map<String, FieldHint> hints = layoutResolver.resolveFieldHints(
+                uiLayout, "document", d.logicalName());
+        map.put("attributes", describeAttributes(d.attributes(), hints));
         map.put("tabularSections", d.tabularSections().stream().map(ts -> {
             Map<String, Object> tsMap = new LinkedHashMap<>();
             tsMap.put("name", ts.name());
             tsMap.put("tableName", ts.tableName());
-            tsMap.put("attributes", describeAttributes(ts.attributes()));
+            // Tabular section field hints are not yet configurable via the layout
+            // DSL; they continue to come from @UiHint on the row class for now.
+            tsMap.put("attributes", describeAttributes(ts.attributes(), Map.of()));
             return tsMap;
         }).toList());
         addSectionInfo(map, d.javaClass());
@@ -166,8 +177,10 @@ public class MetadataApiController {
         map.put("context", d.context());
         map.put("readRoles", d.readRoles());
         map.put("writeRoles", d.writeRoles());
-        map.put("dimensions", describeAttributes(d.dimensions()));
-        map.put("resources", describeAttributes(d.resources()));
+        Map<String, FieldHint> hints = layoutResolver.resolveFieldHints(
+                uiLayout, "register", d.logicalName());
+        map.put("dimensions", describeAttributes(d.dimensions(), hints));
+        map.put("resources", describeAttributes(d.resources(), hints));
         addSectionInfo(map, d.javaClass());
         return map;
     }
@@ -178,8 +191,10 @@ public class MetadataApiController {
         map.put("sectionOrder", section != null ? section.order() : null);
     }
 
-    private List<Map<String, Object>> describeAttributes(List<AttributeDescriptor> attrs) {
+    private List<Map<String, Object>> describeAttributes(List<AttributeDescriptor> attrs,
+                                                          Map<String, FieldHint> layoutHints) {
         return attrs.stream().map(a -> {
+            FieldHint hint = layoutHints.get(a.fieldName());
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("fieldName", a.fieldName());
             map.put("displayName", a.displayName());
@@ -191,13 +206,15 @@ public class MetadataApiController {
             map.put("refTarget", a.refTarget());
             map.put("precision", a.precision());
             map.put("scale", a.scale());
-            map.put("visibleInList", a.visibleInList());
-            map.put("visibleInForm", a.visibleInForm());
-            map.put("visibleInDetail", a.visibleInDetail());
-            map.put("order", a.order());
-            map.put("group", a.group());
-            map.put("widthHint", a.widthHint());
-            map.put("widget", a.widget());
+            // Layout hints win when set; otherwise fall back to descriptor (which
+            // reflects @UiHint on the field, or scanner default if absent).
+            map.put("visibleInList", pick(hint == null ? null : hint.visibleInList(), a.visibleInList()));
+            map.put("visibleInForm", pick(hint == null ? null : hint.visibleInForm(), a.visibleInForm()));
+            map.put("visibleInDetail", pick(hint == null ? null : hint.visibleInDetail(), a.visibleInDetail()));
+            map.put("order", pick(hint == null ? null : hint.order(), a.order()));
+            map.put("group", pick(hint == null ? null : hint.group(), a.group()));
+            map.put("widthHint", pick(hint == null ? null : hint.width(), a.widthHint()));
+            map.put("widget", pick(hint == null ? null : hint.widget(), a.widget()));
             boolean isEnum = a.javaType().isEnum();
             map.put("isEnum", isEnum);
             if (isEnum) {
@@ -216,5 +233,9 @@ public class MetadataApiController {
             }
             return map;
         }).toList();
+    }
+
+    private static <T> T pick(T fromHint, T fromDescriptor) {
+        return fromHint != null ? fromHint : fromDescriptor;
     }
 }

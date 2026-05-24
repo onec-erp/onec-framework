@@ -15,6 +15,28 @@ public class UiLayoutResolver {
         this.registry = registry;
     }
 
+    /**
+     * Look up field hints for an entity declared in the layout.
+     *
+     * <p>Returns an empty map if the entity is not referenced by any section or
+     * was added via the no-lambda overload. Multiple sections referencing the
+     * same entity are not expected; the first match wins.</p>
+     */
+    public Map<String, FieldHint> resolveFieldHints(UiLayout layout,
+                                                     String entityType,
+                                                     String entityName) {
+        for (UiLayout.Section section : layout.sections()) {
+            for (UiLayoutBuilder.EntityRef ref : section.entityRefs()) {
+                if (!ref.type().equals(entityType)) continue;
+                String resolved = resolveEntityNameByClass(ref.type(), ref.javaClass());
+                if (entityName.equals(resolved)) {
+                    return ref.fieldHints();
+                }
+            }
+        }
+        return Map.of();
+    }
+
     public List<UiLayout.ResolvedSection> resolve(UiLayout layout) {
         List<UiLayout.ResolvedSection> result = new ArrayList<>();
 
