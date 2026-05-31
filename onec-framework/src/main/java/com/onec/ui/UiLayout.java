@@ -4,18 +4,24 @@ import java.util.List;
 
 public record UiLayout(List<Section> sections,
                        List<UiLayoutBuilder.WidgetConfig> widgets,
-                       List<Profile> profiles) {
+                       List<Profile> profiles,
+                       UiIdentityLink identity) {
 
     public UiLayout {
         profiles = profiles == null ? List.of() : List.copyOf(profiles);
     }
 
     public UiLayout(List<Section> sections) {
-        this(sections, List.of(), List.of());
+        this(sections, List.of(), List.of(), null);
     }
 
     public UiLayout(List<Section> sections, List<UiLayoutBuilder.WidgetConfig> widgets) {
-        this(sections, widgets, List.of());
+        this(sections, widgets, List.of(), null);
+    }
+
+    public UiLayout(List<Section> sections, List<UiLayoutBuilder.WidgetConfig> widgets,
+                    List<Profile> profiles) {
+        this(sections, widgets, profiles, null);
     }
 
     /**

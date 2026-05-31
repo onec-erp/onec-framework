@@ -252,12 +252,17 @@ public class OneCAutoConfiguration extends AbstractJdbcConfiguration {
             widgets = List.of(); // will fall back to annotation-based widgets in registry
         }
 
-        return new UiLayout(merged, widgets, builder.buildProfiles());
+        return new UiLayout(merged, widgets, builder.buildProfiles(), builder.buildIdentity());
     }
 
     @Bean
     public UiLayoutResolver uiLayoutResolver(MetadataRegistry registry) {
         return new UiLayoutResolver(registry);
+    }
+
+    @Bean
+    public com.onec.ui.UiProfileResolver uiProfileResolver() {
+        return new com.onec.ui.UiProfileResolver();
     }
 
     private MetadataRegistry buildRegistry(List<String> scanPackages) {

@@ -11,6 +11,7 @@ public class UiLayoutBuilder {
     private final Map<String, SectionBuilder> sections = new LinkedHashMap<>();
     private final List<WidgetBuilder> widgets = new ArrayList<>();
     private final Map<String, ProfileBuilder> profiles = new LinkedHashMap<>();
+    private UiIdentityLink identity;
 
     public SectionBuilder section(String name) {
         return sections.computeIfAbsent(name, SectionBuilder::new);
@@ -37,6 +38,20 @@ public class UiLayoutBuilder {
             result.add(pb.buildProfile());
         }
         return result;
+    }
+
+    /**
+     * Link authenticated accounts to a catalog record by matching the login to
+     * {@code loginField}, so persona UIs can resolve "the current person".
+     * See {@link UiIdentityLink}.
+     */
+    public UiLayoutBuilder identity(Class<?> directoryClass, String loginField) {
+        this.identity = new UiIdentityLink(directoryClass, loginField);
+        return this;
+    }
+
+    public UiIdentityLink buildIdentity() {
+        return identity;
     }
 
     public List<UiLayout.Section> build() {

@@ -96,4 +96,19 @@ public class UiAutoConfiguration implements WebMvcConfigurer {
         return new GenericRegisterController(registry, jdbi, access);
     }
 
+    @Bean
+    public CurrentUserResolver currentUserResolver(com.onec.ui.UiLayout uiLayout,
+                                                   MetadataRegistry registry, Jdbi jdbi) {
+        return new CurrentUserResolver(uiLayout, registry, jdbi);
+    }
+
+    @Bean
+    public DivKitController divKitController(com.onec.ui.UiLayout uiLayout,
+                                             com.onec.ui.UiLayoutResolver layoutResolver,
+                                             com.onec.ui.UiProfileResolver profileResolver,
+                                             UiAccessService access,
+                                             CurrentUserResolver currentUserResolver) {
+        return new DivKitController(uiLayout, layoutResolver, profileResolver, access, currentUserResolver);
+    }
+
 }

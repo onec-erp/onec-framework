@@ -29,7 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Document(name = "Bookings", numberPrefix = "B-", numberLength = 14, context = "Rentals")
-@AccessControl(readRoles = {"ADMIN", "RENTALS"}, writeRoles = {"ADMIN", "RENTALS"})
+@AccessControl(readRoles = {"ADMIN", "RENTALS", "CLEANER"}, writeRoles = {"ADMIN", "RENTALS"})
 @BusinessRule(name = "property-required", expression = "property != null")
 @MailTemplate(name = "booking-confirmed",
         subject = "Your booking is confirmed",

@@ -178,5 +178,27 @@ public class UiConfig implements OneCUiConfigurer {
                 .type("list").order(8).width("1/2")
                 .document(Bill.class)
                 .maxItems(8);
+
+        // Persona: cleaning staff get a focused, task-oriented app instead of the
+        // full back-office layout. Curation only — RBAC still gates the data.
+        var cleaning = layout.profile("cleaning")
+                .roles("CLEANER")
+                .title("Cleaning")
+                .theme("teal")
+                .priority(10);
+        cleaning.section("Today")
+                .order(0).icon("sparkles")
+                .document(Booking.class, d -> d
+                        .field("property").order(0)
+                        .field("checkOut").order(1)
+                        .field("status").order(2)
+                        .field("assignedTo").order(3));
+        cleaning.section("Team")
+                .order(1).icon("users")
+                .catalog(Employee.class);
+
+        // Link login accounts to Employee records, matched on email, so persona
+        // UIs can greet and (later) scope to the signed-in person.
+        layout.identity(Employee.class, "email");
     }
 }
