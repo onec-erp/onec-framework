@@ -2,7 +2,6 @@ package com.onec.ui;
 
 import com.onec.metadata.AttributeDescriptor;
 import com.onec.metadata.CatalogDescriptor;
-import com.onec.metadata.MetadataRegistry;
 import com.onec.numbering.NumberGenerator;
 
 import org.jdbi.v3.core.Jdbi;
@@ -13,107 +12,70 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.security.Principal;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/ui/catalogs")
 public class GenericCatalogController {
 
-    private final MetadataRegistry registry;
     private final Jdbi jdbi;
     private final UiProperties properties;
     private final NumberGenerator numberGenerator;
-    private final RefResolver refResolver;
+    private final CatalogQueryService query;
     private final UiAccessService access;
     private final UiEventPublisher eventPublisher;
 
-    public GenericCatalogController(MetadataRegistry registry, Jdbi jdbi, UiProperties properties,
+    public GenericCatalogController(Jdbi jdbi, UiProperties properties,
                                     NumberGenerator numberGenerator,
+                                    CatalogQueryService query,
                                     UiAccessService access,
                                     UiEventPublisher eventPublisher) {
-        this.registry = registry;
         this.jdbi = jdbi;
         this.properties = properties;
         this.numberGenerator = numberGenerator;
-        this.refResolver = new RefResolver(registry, jdbi);
+        this.query = query;
         this.access = access;
         this.eventPublisher = eventPublisher;
     }
 
     @GetMapping("/{name}")
     public List<Map<String, Object>> list(@PathVariable String name, Principal principal) {
-        CatalogDescriptor desc = findCatalog(name);
+        CatalogDescriptor desc = query.require(name);
         access.requireRead(principal, desc);
-        List<Map<String, Object>> rows = jdbi.withHandle(h ->
-                h.createQuery("SELECT * FROM " + desc.tableName() + " WHERE _deletion_mark = false")
-                        .mapToMap()
-                        .list()
-        );
-        refResolver.resolveAttributes(rows, desc.attributes());
-        return rows;
+        return query.list(desc);
     }
 
     @GetMapping("/{name}/children")
     public List<Map<String, Object>> children(@PathVariable String name,
                                               @RequestParam(required = false) UUID parent,
                                               Principal principal) {
-        CatalogDescriptor desc = findCatalog(name);
+        CatalogDescriptor desc = query.require(name);
         access.requireRead(principal, desc);
-        if (!desc.hierarchical()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Catalog is not hierarchical: " + name);
-        }
-        List<Map<String, Object>> rows = jdbi.withHandle(h -> {
-            String sql = "SELECT * FROM " + desc.tableName() +
-                    " WHERE _deletion_mark = false AND " +
-                    (parent == null ? "_parent IS NULL" : "_parent = :parent") +
-                    " ORDER BY _is_folder DESC, _description";
-            var query = h.createQuery(sql);
-            if (parent != null) query.bind("parent", parent);
-            return query.mapToMap().list();
-        });
-        refResolver.resolveAttributes(rows, desc.attributes());
-        return rows;
+        return query.children(desc, parent);
     }
 
     @GetMapping("/{name}/tree")
     public List<Map<String, Object>> tree(@PathVariable String name, Principal principal) {
-        CatalogDescriptor desc = findCatalog(name);
+        CatalogDescriptor desc = query.require(name);
         access.requireRead(principal, desc);
-        if (!desc.hierarchical()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Catalog is not hierarchical: " + name);
-        }
-        List<Map<String, Object>> rows = jdbi.withHandle(h ->
-                h.createQuery("SELECT * FROM " + desc.tableName() +
-                                " WHERE _deletion_mark = false ORDER BY _is_folder DESC, _description")
-                        .mapToMap()
-                        .list()
-        );
-        refResolver.resolveAttributes(rows, desc.attributes());
-        return buildTree(rows, null);
+        return query.tree(desc);
     }
 
     @GetMapping("/{name}/{id}")
     public Map<String, Object> get(@PathVariable String name, @PathVariable UUID id, Principal principal) {
-        CatalogDescriptor desc = findCatalog(name);
+        CatalogDescriptor desc = query.require(name);
         access.requireRead(principal, desc);
-        Map<String, Object> row = jdbi.withHandle(h ->
-                h.createQuery("SELECT * FROM " + desc.tableName() + " WHERE _id = :id")
-                        .bind("id", id)
-                        .mapToMap()
-                        .findOne()
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))
-        );
-        refResolver.resolveAttributes(List.of(row), desc.attributes());
-        return row;
+        return query.get(desc, id);
     }
 
     @PostMapping("/{name}")
     public Map<String, Object> create(@PathVariable String name, @RequestBody Map<String, Object> body,
                                       Principal principal) {
         requireWritable();
-        CatalogDescriptor desc = findCatalog(name);
+        CatalogDescriptor desc = query.require(name);
         access.requireWrite(principal, desc);
         UUID id = UUID.randomUUID();
 
@@ -148,7 +110,7 @@ public class GenericCatalogController {
         });
 
         eventPublisher.publish("created", "catalog", desc.logicalName(), id);
-        return get(name, id, principal);
+        return query.get(desc, id);
     }
 
     @PutMapping("/{name}/{id}")
@@ -156,7 +118,7 @@ public class GenericCatalogController {
                                        @RequestBody Map<String, Object> body,
                                        Principal principal) {
         requireWritable();
-        CatalogDescriptor desc = findCatalog(name);
+        CatalogDescriptor desc = query.require(name);
         access.requireWrite(principal, desc);
 
         List<String> setClauses = new ArrayList<>();
@@ -172,7 +134,7 @@ public class GenericCatalogController {
         }
 
         if (setClauses.isEmpty()) {
-            return get(name, id, principal);
+            return query.get(desc, id);
         }
 
         setClauses.add("_version = _version + 1");
@@ -205,13 +167,13 @@ public class GenericCatalogController {
         }
 
         eventPublisher.publish("updated", "catalog", desc.logicalName(), id);
-        return get(name, id, principal);
+        return query.get(desc, id);
     }
 
     @DeleteMapping("/{name}/{id}")
     public void delete(@PathVariable String name, @PathVariable UUID id, Principal principal) {
         requireWritable();
-        CatalogDescriptor desc = findCatalog(name);
+        CatalogDescriptor desc = query.require(name);
         access.requireWrite(principal, desc);
         jdbi.useHandle(h ->
                 h.createUpdate("UPDATE " + desc.tableName() + " SET _deletion_mark = true WHERE _id = :id")
@@ -219,15 +181,6 @@ public class GenericCatalogController {
                         .execute()
         );
         eventPublisher.publish("deleted", "catalog", desc.logicalName(), id);
-    }
-
-    private CatalogDescriptor findCatalog(String name) {
-        String normalized = name.replace("_", "").toLowerCase();
-        return registry.allCatalogs().stream()
-                .filter(d -> d.logicalName().replace(" ", "").toLowerCase().equals(normalized))
-                .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Catalog not found: " + name));
     }
 
     private void bindAttribute(Update update, AttributeDescriptor attr, Object value) {
@@ -252,18 +205,6 @@ public class GenericCatalogController {
 
     private int parseInt(Object value) {
         return value instanceof Number n ? n.intValue() : Integer.parseInt(value.toString());
-    }
-
-    private List<Map<String, Object>> buildTree(List<Map<String, Object>> rows, UUID parent) {
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (Map<String, Object> row : rows) {
-            UUID rowParent = parseUuid(row.get("_parent"));
-            if (!Objects.equals(rowParent, parent)) continue;
-            Map<String, Object> copy = new LinkedHashMap<>(row);
-            copy.put("children", buildTree(rows, parseUuid(row.get("_id"))));
-            result.add(copy);
-        }
-        return result;
     }
 
     private void requireWritable() {

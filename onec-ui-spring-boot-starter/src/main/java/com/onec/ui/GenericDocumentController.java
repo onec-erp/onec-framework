@@ -34,13 +34,14 @@ public class GenericDocumentController {
     private final UiProperties properties;
     private final NumberGenerator numberGenerator;
     private final PostingService postingService;
-    private final RefResolver refResolver;
     private final UiAccessService access;
     private final UiEventPublisher eventPublisher;
+    private final DocumentQueryService query;
 
     public GenericDocumentController(MetadataRegistry registry, Jdbi jdbi, UiProperties properties,
                                       NumberGenerator numberGenerator,
                                       PostingService postingService,
+                                      DocumentQueryService query,
                                       UiAccessService access,
                                       UiEventPublisher eventPublisher) {
         this.registry = registry;
@@ -48,7 +49,7 @@ public class GenericDocumentController {
         this.properties = properties;
         this.numberGenerator = numberGenerator;
         this.postingService = postingService;
-        this.refResolver = new RefResolver(registry, jdbi);
+        this.query = query;
         this.access = access;
         this.eventPublisher = eventPublisher;
     }
@@ -58,58 +59,23 @@ public class GenericDocumentController {
                                            @RequestParam(required = false) String from,
                                            @RequestParam(required = false) String to,
                                            Principal principal) {
-        DocumentDescriptor desc = findDocument(name);
+        DocumentDescriptor desc = query.require(name);
         access.requireRead(principal, desc);
-        StringBuilder sql = new StringBuilder("SELECT * FROM " + desc.tableName() + " WHERE _deletion_mark = false");
-        if (from != null) sql.append(" AND _date >= :from");
-        if (to != null) sql.append(" AND _date <= :to");
-        sql.append(" ORDER BY _date DESC");
-
-        List<Map<String, Object>> rows = jdbi.withHandle(h -> {
-            var query = h.createQuery(sql.toString());
-            if (from != null) query.bind("from", from);
-            if (to != null) query.bind("to", to);
-            return query.mapToMap().list();
-        });
-        refResolver.resolveAttributes(rows, desc.attributes());
-        return rows;
+        return query.list(desc, from, to);
     }
 
     @GetMapping("/{name}/{id}")
     public Map<String, Object> get(@PathVariable String name, @PathVariable UUID id, Principal principal) {
-        DocumentDescriptor desc = findDocument(name);
+        DocumentDescriptor desc = query.require(name);
         access.requireRead(principal, desc);
-        Map<String, Object> doc = jdbi.withHandle(h ->
-                h.createQuery("SELECT * FROM " + desc.tableName() + " WHERE _id = :id")
-                        .bind("id", id)
-                        .mapToMap()
-                        .findOne()
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))
-        );
-
-        refResolver.resolveAttributes(List.of(doc), desc.attributes());
-
-        // Load tabular sections
-        for (TabularSectionDescriptor ts : desc.tabularSections()) {
-            List<Map<String, Object>> rows = jdbi.withHandle(h ->
-                    h.createQuery("SELECT * FROM " + ts.tableName() +
-                                    " WHERE _parent_id = :parentId ORDER BY _line_number")
-                            .bind("parentId", id)
-                            .mapToMap()
-                            .list()
-            );
-            refResolver.resolveAttributes(rows, ts.attributes());
-            doc.put(ts.name(), rows);
-        }
-
-        return doc;
+        return query.get(desc, id);
     }
 
     @PostMapping("/{name}")
     public Map<String, Object> create(@PathVariable String name, @RequestBody Map<String, Object> body,
                                       Principal principal) {
         requireWritable();
-        DocumentDescriptor desc = findDocument(name);
+        DocumentDescriptor desc = query.require(name);
         access.requireWrite(principal, desc);
         UUID id = UUID.randomUUID();
 
@@ -145,7 +111,7 @@ public class GenericDocumentController {
         insertTabularSections(desc, id, body);
 
         eventPublisher.publish("created", "document", desc.logicalName(), id);
-        return get(name, id, principal);
+        return query.get(desc, id);
     }
 
     @PutMapping("/{name}/{id}")
@@ -153,7 +119,7 @@ public class GenericDocumentController {
                                        @RequestBody Map<String, Object> body,
                                        Principal principal) {
         requireWritable();
-        DocumentDescriptor desc = findDocument(name);
+        DocumentDescriptor desc = query.require(name);
         access.requireWrite(principal, desc);
 
         List<String> setClauses = new ArrayList<>();
@@ -207,24 +173,24 @@ public class GenericDocumentController {
         insertTabularSections(desc, id, body);
 
         eventPublisher.publish("updated", "document", desc.logicalName(), id);
-        return get(name, id, principal);
+        return query.get(desc, id);
     }
 
     @PostMapping("/{name}/{id}/post")
     public Map<String, Object> post(@PathVariable String name, @PathVariable UUID id, Principal principal) {
         requireWritable();
-        DocumentDescriptor desc = findDocument(name);
+        DocumentDescriptor desc = query.require(name);
         access.requireWrite(principal, desc);
         DocumentObject doc = loadDocumentObject(desc, id);
         postingService.post(doc);
         eventPublisher.publish("posted", "document", desc.logicalName(), id);
         eventPublisher.publish("changed", "register", "*", id);
-        return get(name, id, principal);
+        return query.get(desc, id);
     }
 
     @GetMapping("/{name}/{id}/posting-preview")
     public PostingPreview postingPreview(@PathVariable String name, @PathVariable UUID id, Principal principal) {
-        DocumentDescriptor desc = findDocument(name);
+        DocumentDescriptor desc = query.require(name);
         access.requireRead(principal, desc);
         DocumentObject doc = loadDocumentObject(desc, id);
         return postingService.preview(doc);
@@ -233,13 +199,13 @@ public class GenericDocumentController {
     @PostMapping("/{name}/{id}/unpost")
     public Map<String, Object> unpost(@PathVariable String name, @PathVariable UUID id, Principal principal) {
         requireWritable();
-        DocumentDescriptor desc = findDocument(name);
+        DocumentDescriptor desc = query.require(name);
         access.requireWrite(principal, desc);
         DocumentObject doc = loadDocumentObject(desc, id);
         postingService.unpost(doc);
         eventPublisher.publish("unposted", "document", desc.logicalName(), id);
         eventPublisher.publish("changed", "register", "*", id);
-        return get(name, id, principal);
+        return query.get(desc, id);
     }
 
     @SuppressWarnings("unchecked")
@@ -390,7 +356,7 @@ public class GenericDocumentController {
     @DeleteMapping("/{name}/{id}")
     public void delete(@PathVariable String name, @PathVariable UUID id, Principal principal) {
         requireWritable();
-        DocumentDescriptor desc = findDocument(name);
+        DocumentDescriptor desc = query.require(name);
         access.requireWrite(principal, desc);
 
         // Unpost first if posted
@@ -475,15 +441,6 @@ public class GenericDocumentController {
 
     private int parseInt(Object value) {
         return value instanceof Number n ? n.intValue() : Integer.parseInt(value.toString());
-    }
-
-    private DocumentDescriptor findDocument(String name) {
-        String normalized = name.replace("_", "").toLowerCase();
-        return registry.allDocuments().stream()
-                .filter(d -> d.logicalName().replace(" ", "").toLowerCase().equals(normalized))
-                .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Document not found: " + name));
     }
 
     private void requireWritable() {

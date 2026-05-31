@@ -70,13 +70,29 @@ public class UiAutoConfiguration implements WebMvcConfigurer {
     }
 
     @Bean
-    public GenericCatalogController genericCatalogController(MetadataRegistry registry, Jdbi jdbi,
+    public CatalogQueryService catalogQueryService(MetadataRegistry registry, Jdbi jdbi) {
+        return new CatalogQueryService(registry, jdbi);
+    }
+
+    @Bean
+    public DocumentQueryService documentQueryService(MetadataRegistry registry, Jdbi jdbi) {
+        return new DocumentQueryService(registry, jdbi);
+    }
+
+    @Bean
+    public RegisterQueryService registerQueryService(MetadataRegistry registry, Jdbi jdbi) {
+        return new RegisterQueryService(registry, jdbi);
+    }
+
+    @Bean
+    public GenericCatalogController genericCatalogController(Jdbi jdbi,
                                                               UiProperties properties,
                                                               NumberGenerator numberGenerator,
+                                                              CatalogQueryService catalogQueryService,
                                                               UiAccessService access,
                                                               UiEventPublisher eventPublisher) {
-        return new GenericCatalogController(registry, jdbi, properties, numberGenerator, access,
-                eventPublisher);
+        return new GenericCatalogController(jdbi, properties, numberGenerator, catalogQueryService,
+                access, eventPublisher);
     }
 
     @Bean
@@ -84,16 +100,17 @@ public class UiAutoConfiguration implements WebMvcConfigurer {
                                                                 UiProperties properties,
                                                                 NumberGenerator numberGenerator,
                                                                 PostingService postingService,
+                                                                DocumentQueryService documentQueryService,
                                                                 UiAccessService access,
                                                                 UiEventPublisher eventPublisher) {
         return new GenericDocumentController(registry, jdbi, properties, numberGenerator, postingService,
-                access, eventPublisher);
+                documentQueryService, access, eventPublisher);
     }
 
     @Bean
-    public GenericRegisterController genericRegisterController(MetadataRegistry registry, Jdbi jdbi,
+    public GenericRegisterController genericRegisterController(RegisterQueryService registerQueryService,
                                                                UiAccessService access) {
-        return new GenericRegisterController(registry, jdbi, access);
+        return new GenericRegisterController(registerQueryService, access);
     }
 
     @Bean
