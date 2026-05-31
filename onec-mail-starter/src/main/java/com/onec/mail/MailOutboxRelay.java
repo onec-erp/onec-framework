@@ -7,8 +7,6 @@ import java.time.LocalDateTime;
 
 public class MailOutboxRelay {
 
-    private static final int MAX_ATTEMPTS = 5;
-
     private final MailOutbox outbox;
     private final MailDispatcher dispatcher;
     private final ObjectMapper objectMapper;
@@ -34,7 +32,7 @@ public class MailOutboxRelay {
                 dispatched++;
             } catch (Exception e) {
                 int attempts = p.attempts() + 1;
-                boolean exhausted = attempts >= MAX_ATTEMPTS;
+                boolean exhausted = attempts >= properties.getRelay().getMaxAttempts();
                 LocalDateTime next = LocalDateTime.now().plus(backoff(attempts));
                 outbox.recordFailure(p.id(), attempts, summarize(e), next, exhausted);
             }

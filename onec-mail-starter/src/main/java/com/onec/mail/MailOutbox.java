@@ -4,6 +4,7 @@ import org.jdbi.v3.core.Jdbi;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -18,6 +19,7 @@ public class MailOutbox {
                     "    _id UUID PRIMARY KEY,\n" +
                     "    _payload TEXT NOT NULL,\n" +
                     "    _provider VARCHAR(64),\n" +
+                    "    _idempotency_key VARCHAR(200),\n" +
                     "    _attempts INT NOT NULL DEFAULT 0,\n" +
                     "    _last_error TEXT,\n" +
                     "    _created_at TIMESTAMP NOT NULL,\n" +
@@ -26,6 +28,10 @@ public class MailOutbox {
                     "    _status VARCHAR(32) NOT NULL\n" +
                     ")";
 
+    private static final String DDL_IDEMPOTENCY_INDEX =
+            "CREATE UNIQUE INDEX IF NOT EXISTS onec_mail_outbox_idem " +
+                    "ON onec_mail_outbox (_idempotency_key)";
+
     private final Jdbi jdbi;
 
     public MailOutbox(Jdbi jdbi) {
@@ -33,19 +39,43 @@ public class MailOutbox {
     }
 
     public void initSchema() {
-        jdbi.useHandle(h -> h.execute(DDL));
+        jdbi.useHandle(h -> {
+            h.execute(DDL);
+            h.execute(DDL_IDEMPOTENCY_INDEX);
+        });
     }
 
     public UUID enqueue(String payload, String provider) {
+        return enqueue(payload, provider, null);
+    }
+
+    /**
+     * Enqueues a message. When {@code idempotencyKey} is non-blank and a row with that key already exists,
+     * the existing id is returned and no new row is inserted, so retried application logic can't double-send.
+     */
+    public UUID enqueue(String payload, String provider, String idempotencyKey) {
+        boolean hasKey = idempotencyKey != null && !idempotencyKey.isBlank();
+        if (hasKey) {
+            Optional<UUID> existing = jdbi.withHandle(h -> h.createQuery(
+                            "SELECT _id FROM onec_mail_outbox WHERE _idempotency_key = :key")
+                    .bind("key", idempotencyKey)
+                    .mapTo(UUID.class)
+                    .findFirst());
+            if (existing.isPresent()) {
+                return existing.get();
+            }
+        }
         UUID id = UUID.randomUUID();
         LocalDateTime now = LocalDateTime.now();
         jdbi.useHandle(h -> h.createUpdate(
                         "INSERT INTO onec_mail_outbox " +
-                                "(_id, _payload, _provider, _attempts, _created_at, _next_attempt_at, _status) " +
-                                "VALUES (:id, :payload, :provider, 0, :now, :now, 'NEW')")
+                                "(_id, _payload, _provider, _idempotency_key, _attempts, _created_at, _next_attempt_at, _status) " +
+                                "VALUES (:id, :payload, :provider, :key, 0, :now, :now, 'NEW') " +
+                                "ON CONFLICT (_idempotency_key) DO NOTHING")
                 .bind("id", id)
                 .bind("payload", payload)
                 .bind("provider", provider)
+                .bind("key", hasKey ? idempotencyKey : null)
                 .bind("now", now)
                 .execute());
         return id;
