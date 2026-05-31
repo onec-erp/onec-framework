@@ -124,8 +124,13 @@ public class UiAutoConfiguration implements WebMvcConfigurer {
                                              com.onec.ui.UiLayoutResolver layoutResolver,
                                              com.onec.ui.UiProfileResolver profileResolver,
                                              UiAccessService access,
-                                             CurrentUserResolver currentUserResolver) {
-        return new DivKitController(uiLayout, layoutResolver, profileResolver, access, currentUserResolver);
+                                             CurrentUserResolver currentUserResolver,
+                                             ResolvedMetadataService resolvedMetadata,
+                                             CatalogQueryService catalogQueryService,
+                                             DocumentQueryService documentQueryService,
+                                             RegisterQueryService registerQueryService) {
+        return new DivKitController(uiLayout, layoutResolver, profileResolver, access, currentUserResolver,
+                resolvedMetadata, catalogQueryService, documentQueryService, registerQueryService);
     }
 
 }

@@ -1,9 +1,15 @@
 package com.onec.ui;
 
+import com.onec.metadata.AccumulationRegisterDescriptor;
+import com.onec.metadata.CatalogDescriptor;
 import com.onec.metadata.DashboardWidgetDescriptor;
+import com.onec.metadata.DocumentDescriptor;
+import com.onec.model.AccumulationType;
 import com.onec.ui.divkit.AppShellBuilder;
+import com.onec.ui.divkit.SurfaceDivBuilder;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -13,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -30,17 +37,29 @@ public class DivKitController {
     private final UiProfileResolver profileResolver;
     private final UiAccessService access;
     private final CurrentUserResolver currentUserResolver;
+    private final ResolvedMetadataService resolvedMetadata;
+    private final CatalogQueryService catalogQuery;
+    private final DocumentQueryService documentQuery;
+    private final RegisterQueryService registerQuery;
 
     public DivKitController(UiLayout layout,
                             UiLayoutResolver layoutResolver,
                             UiProfileResolver profileResolver,
                             UiAccessService access,
-                            CurrentUserResolver currentUserResolver) {
+                            CurrentUserResolver currentUserResolver,
+                            ResolvedMetadataService resolvedMetadata,
+                            CatalogQueryService catalogQuery,
+                            DocumentQueryService documentQuery,
+                            RegisterQueryService registerQuery) {
         this.layout = layout;
         this.layoutResolver = layoutResolver;
         this.profileResolver = profileResolver;
         this.access = access;
         this.currentUserResolver = currentUserResolver;
+        this.resolvedMetadata = resolvedMetadata;
+        this.catalogQuery = catalogQuery;
+        this.documentQuery = documentQuery;
+        this.registerQuery = registerQuery;
     }
 
     @GetMapping("/app")
@@ -84,5 +103,46 @@ public class DivKitController {
 
         return AppShellBuilder.build(title, active.theme(), greeting, active.id(),
                 profileLinks, nav, home);
+    }
+
+    @GetMapping("/catalogs/{name}")
+    public Map<String, Object> catalogList(@PathVariable String name, Principal principal) {
+        CatalogDescriptor desc = catalogQuery.require(name);
+        access.requireRead(principal, desc);
+        return SurfaceDivBuilder.catalogList(resolvedMetadata.describeCatalog(desc), catalogQuery.list(desc));
+    }
+
+    @GetMapping("/documents/{name}")
+    public Map<String, Object> documentList(@PathVariable String name,
+                                            @RequestParam(required = false) String from,
+                                            @RequestParam(required = false) String to,
+                                            Principal principal) {
+        DocumentDescriptor desc = documentQuery.require(name);
+        access.requireRead(principal, desc);
+        return SurfaceDivBuilder.documentList(resolvedMetadata.describeDocument(desc),
+                documentQuery.list(desc, from, to), name);
+    }
+
+    @GetMapping("/documents/{name}/{id}")
+    public Map<String, Object> documentDetail(@PathVariable String name, @PathVariable UUID id,
+                                              Principal principal) {
+        DocumentDescriptor desc = documentQuery.require(name);
+        access.requireRead(principal, desc);
+        return SurfaceDivBuilder.documentDetail(resolvedMetadata.describeDocument(desc),
+                documentQuery.get(desc, id));
+    }
+
+    @GetMapping("/registers/{name}")
+    public Map<String, Object> registerReport(@PathVariable String name,
+                                              @RequestParam(required = false) String from,
+                                              @RequestParam(required = false) String to,
+                                              Principal principal) {
+        AccumulationRegisterDescriptor desc = registerQuery.require(name);
+        access.requireRead(principal, desc);
+        List<Map<String, Object>> balances = desc.accumulationType() == AccumulationType.BALANCE
+                ? registerQuery.balance(desc, Map.of())
+                : null;
+        return SurfaceDivBuilder.registerReport(resolvedMetadata.describeRegister(desc),
+                registerQuery.movements(desc, from, to), balances);
     }
 }

@@ -71,6 +71,15 @@ public final class Div {
         return node;
     }
 
+    /** Make a node share horizontal space with siblings (DivKit match_parent + weight). */
+    public static Map<String, Object> weight(Map<String, Object> node, double weight) {
+        Map<String, Object> width = new LinkedHashMap<>();
+        width.put("type", "match_parent");
+        width.put("weight", weight);
+        node.put("width", width);
+        return node;
+    }
+
     private static Map<String, Object> node(String type) {
         Map<String, Object> node = new LinkedHashMap<>();
         node.put("type", type);
