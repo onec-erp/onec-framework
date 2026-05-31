@@ -25,7 +25,19 @@ public class UiLayoutResolver {
     public Map<String, FieldHint> resolveFieldHints(UiLayout layout,
                                                      String entityType,
                                                      String entityName) {
-        for (UiLayout.Section section : layout.sections()) {
+        return resolveFieldHints(layout.sections(), entityType, entityName);
+    }
+
+    public Map<String, FieldHint> resolveFieldHints(UiLayout.Profile profile,
+                                                     String entityType,
+                                                     String entityName) {
+        return resolveFieldHints(profile.sections(), entityType, entityName);
+    }
+
+    private Map<String, FieldHint> resolveFieldHints(List<UiLayout.Section> sections,
+                                                     String entityType,
+                                                     String entityName) {
+        for (UiLayout.Section section : sections) {
             for (UiLayoutBuilder.EntityRef ref : section.entityRefs()) {
                 if (!ref.type().equals(entityType)) continue;
                 String resolved = resolveEntityNameByClass(ref.type(), ref.javaClass());
@@ -38,9 +50,17 @@ public class UiLayoutResolver {
     }
 
     public List<UiLayout.ResolvedSection> resolve(UiLayout layout) {
+        return resolveSections(layout.sections());
+    }
+
+    public List<UiLayout.ResolvedSection> resolve(UiLayout.Profile profile) {
+        return resolveSections(profile.sections());
+    }
+
+    private List<UiLayout.ResolvedSection> resolveSections(List<UiLayout.Section> sections) {
         List<UiLayout.ResolvedSection> result = new ArrayList<>();
 
-        for (UiLayout.Section section : layout.sections()) {
+        for (UiLayout.Section section : sections) {
             List<UiLayout.ResolvedItem> items = new ArrayList<>();
             for (UiLayoutBuilder.EntityRef ref : section.entityRefs()) {
                 String name = resolveEntityName(ref);
@@ -66,7 +86,15 @@ public class UiLayoutResolver {
      * If the layout has explicit widgets, use those; otherwise fall back to annotation-based.
      */
     public List<DashboardWidgetDescriptor> resolveWidgets(UiLayout layout) {
-        if (layout.widgets().isEmpty()) {
+        return resolveWidgets(layout.widgets());
+    }
+
+    public List<DashboardWidgetDescriptor> resolveWidgets(UiLayout.Profile profile) {
+        return resolveWidgets(profile.widgets());
+    }
+
+    private List<DashboardWidgetDescriptor> resolveWidgets(List<UiLayoutBuilder.WidgetConfig> widgets) {
+        if (widgets.isEmpty()) {
             // Fall back to annotation-based widgets from registry
             return registry.allDashboardWidgets().stream()
                     .sorted(java.util.Comparator.comparingInt(DashboardWidgetDescriptor::order))
@@ -74,7 +102,7 @@ public class UiLayoutResolver {
         }
 
         List<DashboardWidgetDescriptor> result = new ArrayList<>();
-        for (UiLayoutBuilder.WidgetConfig wc : layout.widgets()) {
+        for (UiLayoutBuilder.WidgetConfig wc : widgets) {
             String entityName = resolveEntityNameByClass(wc.entityType(), wc.entityClass());
             if (entityName == null) continue;
 

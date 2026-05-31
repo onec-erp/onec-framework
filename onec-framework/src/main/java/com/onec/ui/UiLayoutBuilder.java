@@ -10,6 +10,7 @@ public class UiLayoutBuilder {
 
     private final Map<String, SectionBuilder> sections = new LinkedHashMap<>();
     private final List<WidgetBuilder> widgets = new ArrayList<>();
+    private final Map<String, ProfileBuilder> profiles = new LinkedHashMap<>();
 
     public SectionBuilder section(String name) {
         return sections.computeIfAbsent(name, SectionBuilder::new);
@@ -19,6 +20,23 @@ public class UiLayoutBuilder {
         WidgetBuilder wb = new WidgetBuilder(this, title);
         widgets.add(wb);
         return wb;
+    }
+
+    /**
+     * Declare (or extend) a named persona profile. Its {@code section(...)} and
+     * {@code widget(...)} calls are scoped to the profile and do not affect the
+     * default layout. See {@link UiLayout.Profile}.
+     */
+    public ProfileBuilder profile(String id) {
+        return profiles.computeIfAbsent(id, ProfileBuilder::new);
+    }
+
+    public List<UiLayout.Profile> buildProfiles() {
+        List<UiLayout.Profile> result = new ArrayList<>();
+        for (ProfileBuilder pb : profiles.values()) {
+            result.add(pb.buildProfile());
+        }
+        return result;
     }
 
     public List<UiLayout.Section> build() {
@@ -193,6 +211,50 @@ public class UiLayoutBuilder {
         WidgetConfig build() {
             return new WidgetConfig(title, type, order, width, entityClass, entityType,
                     maxItems, dateField, titleField, java.util.Map.copyOf(extraConfig));
+        }
+    }
+
+    /**
+     * Configures a named persona profile. Inherits {@code section(...)} and
+     * {@code widget(...)} from {@link UiLayoutBuilder} (scoped to this profile)
+     * and adds persona metadata: target {@code roles}, branding and match
+     * {@code priority}.
+     */
+    public static class ProfileBuilder extends UiLayoutBuilder {
+        private final String id;
+        private String title = "";
+        private String theme = "";
+        private int priority = 0;
+        private final List<String> roles = new ArrayList<>();
+
+        ProfileBuilder(String id) {
+            this.id = id;
+        }
+
+        public ProfileBuilder title(String title) {
+            this.title = title;
+            return this;
+        }
+
+        public ProfileBuilder theme(String theme) {
+            this.theme = theme;
+            return this;
+        }
+
+        public ProfileBuilder priority(int priority) {
+            this.priority = priority;
+            return this;
+        }
+
+        /** Roles that resolve a user into this profile. Empty means "all users". */
+        public ProfileBuilder roles(String... roles) {
+            this.roles.addAll(List.of(roles));
+            return this;
+        }
+
+        UiLayout.Profile buildProfile() {
+            return new UiLayout.Profile(id, title, theme, List.copyOf(roles), priority,
+                    build(), buildWidgets());
         }
     }
 

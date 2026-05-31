@@ -252,7 +252,7 @@ public class OneCAutoConfiguration extends AbstractJdbcConfiguration {
             widgets = List.of(); // will fall back to annotation-based widgets in registry
         }
 
-        return new UiLayout(merged, widgets);
+        return new UiLayout(merged, widgets, builder.buildProfiles());
     }
 
     @Bean
