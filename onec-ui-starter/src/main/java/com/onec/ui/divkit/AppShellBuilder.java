@@ -8,7 +8,7 @@ import java.util.Map;
  * Builds the persona "app shell" as a real DivKit card: title + greeting, a
  * profile switcher, role-filtered navigation, and the home widget list. This is
  * the payload a generic client (web today, Flutter later) fetches on login from
- * {@code GET /api/ui/divkit/app} and renders with an off-the-shelf DivKit SDK.
+ * {@code GET /api/divkit/app} and renders with an off-the-shelf DivKit SDK.
  *
  * <p>Navigation/switch intents are encoded as {@code onec://} action URLs the
  * client maps to routes and bootstrap re-fetches; the data API is untouched.</p>
