@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/ui/metadata")
+@RequestMapping("/api/metadata")
 public class MetadataApiController {
 
     private final MetadataRegistry registry;
@@ -88,7 +88,7 @@ public class MetadataApiController {
     @GetMapping("/manifest")
     public BusinessModelManifest manifest(Principal principal) {
         // Widgets are resolved from the configurer (UiLayoutBuilder) so the manifest
-        // stays consistent with /api/ui/metadata/dashboard. The resolver falls back
+        // stays consistent with /api/metadata/dashboard. The resolver falls back
         // to @DashboardWidget when no builder widgets are declared.
         BusinessModelManifest manifest = new BusinessModelManifestBuilder(registry)
                 .build(layoutResolver.resolveWidgets(uiLayout));

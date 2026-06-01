@@ -5,7 +5,7 @@ import "@divkitframework/divkit/dist/client.css";
 
 /**
  * Generic DivKit surface renderer. Fetches the server-emitted DivKit card for
- * the current route from /api/ui/divkit/* and renders it with the official
+ * the current route from /api/divkit/* and renders it with the official
  * DivKit React wrapper. Navigation/profile-switch intents arrive as onec://
  * action URLs (a non-builtin protocol, so DivKit routes them to onCustomAction)
  * and are mapped to react-router. This same component backs every ?renderer=divkit
@@ -27,10 +27,10 @@ export function DivKitView() {
     const p = location.pathname;
     if (p === "/" || p === "") {
       return profile
-        ? `/api/ui/divkit/app?profile=${encodeURIComponent(profile)}`
-        : "/api/ui/divkit/app";
+        ? `/api/divkit/app?profile=${encodeURIComponent(profile)}`
+        : "/api/divkit/app";
     }
-    return `/api/ui/divkit${p}`;
+    return `/api/divkit${p}`;
   }, [location.pathname, profile]);
 
   useEffect(() => {

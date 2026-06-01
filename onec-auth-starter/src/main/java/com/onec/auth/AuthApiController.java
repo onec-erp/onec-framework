@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/ui/auth")
+@RequestMapping("/api/auth")
 class AuthApiController {
 
     private final AuthenticationManager authenticationManager;

@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/ui/registers")
+@RequestMapping("/api/registers")
 public class GenericRegisterController {
 
     private final RegisterQueryService query;

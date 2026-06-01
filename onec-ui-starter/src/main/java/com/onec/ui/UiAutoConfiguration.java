@@ -22,7 +22,7 @@ public class UiAutoConfiguration implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/ui/**")
+        registry.addResourceHandler("/**")
                 .addResourceLocations("classpath:/static/ui/")
                 .resourceChain(true)
                 .addResolver(new SpaResourceResolver());

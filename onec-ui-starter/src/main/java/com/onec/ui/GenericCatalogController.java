@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/ui/catalogs")
+@RequestMapping("/api/catalogs")
 public class GenericCatalogController {
 
     private final Jdbi jdbi;

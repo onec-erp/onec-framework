@@ -8,15 +8,15 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Serves index.html for /ui and /ui/ without changing the URL,
- * so React Router sees "/" as the path (relative to basename).
+ * Serves index.html at the application root so React Router (basename "/")
+ * boots the SPA. Deep links are handled by {@link SpaResourceResolver}.
  */
 @RestController
 class SpaIndexController {
 
     private static final Resource INDEX = new ClassPathResource("static/ui/index.html");
 
-    @GetMapping(value = {"/ui", "/ui/"}, produces = MediaType.TEXT_HTML_VALUE)
+    @GetMapping(value = {"/"}, produces = MediaType.TEXT_HTML_VALUE)
     @ResponseBody
     public Resource index() {
         return INDEX;

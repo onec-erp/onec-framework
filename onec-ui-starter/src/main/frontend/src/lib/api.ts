@@ -11,7 +11,7 @@ import type {
   UiEvent,
 } from "./types";
 
-const BASE = "/api/ui";
+const BASE = "/api";
 const CSRF_COOKIE = "XSRF-TOKEN";
 const CSRF_HEADER = "X-XSRF-TOKEN";
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);

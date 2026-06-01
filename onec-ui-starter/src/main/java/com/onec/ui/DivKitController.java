@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
  * shown; access is still enforced per data endpoint elsewhere.
  */
 @RestController
-@RequestMapping("/api/ui/divkit")
+@RequestMapping("/api/divkit")
 public class DivKitController {
 
     private final UiLayout layout;

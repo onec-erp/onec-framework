@@ -85,13 +85,14 @@ public class OneCAuthAutoConfiguration {
         return http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(publicPaths).permitAll()
-                        .anyRequest().authenticated())
+                        .requestMatchers("/api/**").authenticated()
+                        .anyRequest().permitAll())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(csrfHandler)
-                        .ignoringRequestMatchers("/api/ui/auth/login"))
+                        .ignoringRequestMatchers("/api/auth/login"))
                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(this::sendUnauthorized))
                 .formLogin(form -> form.disable())

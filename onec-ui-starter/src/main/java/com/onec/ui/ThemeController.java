@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/ui")
+@RequestMapping("/api")
 public class ThemeController {
 
     private final UiProperties properties;

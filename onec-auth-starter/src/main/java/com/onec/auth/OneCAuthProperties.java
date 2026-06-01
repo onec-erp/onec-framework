@@ -15,15 +15,15 @@ public class OneCAuthProperties {
     private boolean enabled = true;
 
     /**
-     * Path patterns the SPA shell and public configuration endpoints live under. They are
-     * permitted without authentication so the login screen can render.
+     * Public API/config endpoints permitted without authentication so the login screen can
+     * render and authenticate. The SPA shell itself (everything outside {@code /api/**}) is
+     * public by default; only {@code /api/**} requires a session.
      */
     private List<String> publicPaths = new ArrayList<>(List.of(
-            "/ui/**",
             "/error",
-            "/api/ui/theme",
-            "/api/ui/config",
-            "/api/ui/auth/login"));
+            "/api/theme",
+            "/api/config",
+            "/api/auth/login"));
 
     /**
      * In-memory user accounts. Empty by default — the consuming app supplies them via

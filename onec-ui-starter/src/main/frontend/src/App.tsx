@@ -54,7 +54,7 @@ function RendererSwitch({ react, divkit }: { react: ReactNode; divkit: ReactNode
 
 export default function App() {
   return (
-    <BrowserRouter basename="/ui">
+    <BrowserRouter basename="/">
       <Routes>
         <Route path="portfolio" element={<PortfolioPage />} />
         <Route path="login" element={<WorkspaceProviders><LoginView /></WorkspaceProviders>} />

@@ -26,7 +26,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @RestController
-@RequestMapping("/api/ui/documents")
+@RequestMapping("/api/documents")
 public class GenericDocumentController {
 
     private final MetadataRegistry registry;

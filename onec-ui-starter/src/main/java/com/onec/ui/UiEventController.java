@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
-@RequestMapping("/api/ui/events")
+@RequestMapping("/api/events")
 public class UiEventController {
 
     private final UiEventPublisher publisher;
