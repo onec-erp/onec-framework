@@ -8,9 +8,9 @@ import java.util.Map;
 /**
  * Builds the per-surface DivKit <em>content</em> (catalog/document lists, document
  * detail, register report) from the resolved metadata view + data rows. Returns a
- * bare content div — {@link com.onec.ui.DivKitController} wraps it in the responsive
- * app shell. Composed only from native DivKit primitives so it renders on every
- * official SDK with no custom code, keeping a future Flutter client cheap.
+ * bare content div — {@link com.onec.ui.DivKitController} wraps it in the app shell.
+ * Composed only from native DivKit primitives so it renders on every official SDK
+ * with no custom code, keeping a future Flutter client cheap.
  */
 public final class SurfaceDivBuilder {
 
@@ -18,71 +18,48 @@ public final class SurfaceDivBuilder {
 
     // ----- catalog list -----
 
-    @SuppressWarnings("unchecked")
-    public static Map<String, Object> catalogList(Map<String, Object> meta, List<Map<String, Object>> rows) {
-        List<Map<String, Object>> visible = visible(
-                (List<Map<String, Object>>) meta.getOrDefault("attributes", List.of()), "visibleInList");
-
-        List<String> headers = new ArrayList<>(List.of("Code", "Description"));
-        for (Map<String, Object> a : visible) headers.add(str(a.get("displayName")));
-
+    public static Map<String, Object> catalogList(Map<String, Object> meta, List<Map<String, Object>> rows, Palette p) {
+        List<Col> cols = listColumns(meta);
         List<Components.Row> body = new ArrayList<>();
         for (Map<String, Object> row : rows) {
-            List<String> cells = new ArrayList<>();
-            cells.add(str(row.get("_code")));
-            cells.add(str(row.get("_description")));
-            for (Map<String, Object> a : visible) cells.add(cell(a, row));
-            body.add(new Components.Row(cells, null));
+            body.add(new Components.Row(rowCells(cols, row), null));
         }
-
         return content(List.of(
-                Components.pageHeader(str(meta.get("name")), count(rows.size(), "item")),
-                Components.table(headers, body)));
+                Components.pageHeader(str(meta.get("name")), count(rows.size(), "item"), p),
+                Components.table(headerLabels(cols), body, p)));
     }
 
     // ----- document list -----
 
-    @SuppressWarnings("unchecked")
     public static Map<String, Object> documentList(Map<String, Object> meta, List<Map<String, Object>> rows,
-                                                   String routeName) {
-        List<Map<String, Object>> visible = visible(
-                (List<Map<String, Object>>) meta.getOrDefault("attributes", List.of()), "visibleInList");
-
-        List<String> headers = new ArrayList<>(List.of("Number", "Date", "Status"));
-        for (Map<String, Object> a : visible) headers.add(str(a.get("displayName")));
-
+                                                   String routeName, Palette p) {
+        List<Col> cols = listColumns(meta);
         List<Components.Row> body = new ArrayList<>();
         for (Map<String, Object> row : rows) {
-            List<String> cells = new ArrayList<>();
-            cells.add(str(row.get("_number")));
-            cells.add(str(row.get("_date")));
-            cells.add(Boolean.TRUE.equals(row.get("_posted")) ? "Posted" : "Draft");
-            for (Map<String, Object> a : visible) cells.add(cell(a, row));
             String url = "onec://documents/" + routeName + "/" + str(row.get("_id"));
-            body.add(new Components.Row(cells, url));
+            body.add(new Components.Row(rowCells(cols, row), url));
         }
-
         return content(List.of(
-                Components.pageHeader(str(meta.get("name")), count(rows.size(), "document")),
-                Components.table(headers, body)));
+                Components.pageHeader(str(meta.get("name")), count(rows.size(), "document"), p),
+                Components.table(headerLabels(cols), body, p)));
     }
 
     // ----- document detail -----
 
     @SuppressWarnings("unchecked")
-    public static Map<String, Object> documentDetail(Map<String, Object> meta, Map<String, Object> row) {
+    public static Map<String, Object> documentDetail(Map<String, Object> meta, Map<String, Object> row, Palette p) {
         List<Map<String, Object>> items = new ArrayList<>();
 
         boolean posted = Boolean.TRUE.equals(row.get("_posted"));
-        items.add(detailHeader(str(meta.get("name")) + " " + str(row.get("_number")), posted));
+        items.add(detailHeader(str(meta.get("name")) + " " + str(row.get("_number")), posted, p));
 
         List<Map<String, Object>> fieldRows = new ArrayList<>();
-        fieldRows.add(Components.fieldRow("Date", str(row.get("_date"))));
+        fieldRows.add(Components.fieldRow("Date", str(row.get("_date")), p));
         for (Map<String, Object> a : visible(
                 (List<Map<String, Object>>) meta.getOrDefault("attributes", List.of()), "visibleInDetail")) {
-            fieldRows.add(Components.fieldRow(str(a.get("displayName")), cell(a, row)));
+            fieldRows.add(Components.fieldRow(str(a.get("displayName")), cell(a, row), p));
         }
-        items.add(Components.card(fieldRows));
+        items.add(Components.card(fieldRows, p));
 
         for (Map<String, Object> ts : (List<Map<String, Object>>) meta.getOrDefault("tabularSections", List.of())) {
             List<Map<String, Object>> tsAttrs = (List<Map<String, Object>>) ts.getOrDefault("attributes", List.of());
@@ -101,8 +78,8 @@ public final class SurfaceDivBuilder {
                 body.add(new Components.Row(cells, null));
                 line++;
             }
-            items.add(sectionLabel(str(ts.get("name"))));
-            items.add(Components.table(headers, body));
+            items.add(sectionLabel(str(ts.get("name")), p));
+            items.add(Components.table(headers, body, p));
         }
 
         return content(items);
@@ -113,14 +90,14 @@ public final class SurfaceDivBuilder {
     @SuppressWarnings("unchecked")
     public static Map<String, Object> registerReport(Map<String, Object> meta,
                                                      List<Map<String, Object>> movements,
-                                                     List<Map<String, Object>> balances) {
+                                                     List<Map<String, Object>> balances, Palette p) {
         String type = str(meta.get("type"));
         List<Map<String, Object>> dimensions = (List<Map<String, Object>>) meta.getOrDefault("dimensions", List.of());
         List<Map<String, Object>> resources = (List<Map<String, Object>>) meta.getOrDefault("resources", List.of());
 
         List<Map<String, Object>> items = new ArrayList<>();
         items.add(Components.pageHeader(str(meta.get("name")),
-                "BALANCE".equals(type) ? "Balance register" : "Turnover register"));
+                "BALANCE".equals(type) ? "Balance register" : "Turnover register", p));
 
         if ("BALANCE".equals(type) && balances != null) {
             List<String> headers = new ArrayList<>();
@@ -133,8 +110,8 @@ public final class SurfaceDivBuilder {
                 for (Map<String, Object> r : resources) cells.add(cell(r, row));
                 body.add(new Components.Row(cells, null));
             }
-            items.add(sectionLabel("Balance"));
-            items.add(Components.table(headers, body));
+            items.add(sectionLabel("Balance", p));
+            items.add(Components.table(headers, body, p));
         }
 
         List<String> headers = new ArrayList<>(List.of("Period", "Type"));
@@ -149,8 +126,8 @@ public final class SurfaceDivBuilder {
             for (Map<String, Object> r : resources) cells.add(cell(r, row));
             body.add(new Components.Row(cells, null));
         }
-        items.add(sectionLabel("Movements"));
-        items.add(Components.table(headers, body));
+        items.add(sectionLabel("Movements", p));
+        items.add(Components.table(headers, body, p));
 
         return content(items);
     }
@@ -164,10 +141,10 @@ public final class SurfaceDivBuilder {
         return root;
     }
 
-    private static Map<String, Object> detailHeader(String title, boolean posted) {
-        Map<String, Object> heading = Div.color(Div.text(title, 22, "bold"), Palette.TEXT);
+    private static Map<String, Object> detailHeader(String title, boolean posted, Palette p) {
+        Map<String, Object> heading = Div.color(Div.text(title, 22, "bold"), p.text());
         Map<String, Object> spacer = Div.weight(Div.horizontal(List.of()), 1);
-        Map<String, Object> badge = Components.statusBadge(posted, posted ? "Posted" : "Draft");
+        Map<String, Object> badge = Components.statusBadge(posted, posted ? "Posted" : "Draft", p);
         Map<String, Object> row = Div.horizontal(List.of(heading, spacer, badge));
         Div.matchWidth(row);
         Div.alignV(row, "center");
@@ -175,14 +152,56 @@ public final class SurfaceDivBuilder {
         return row;
     }
 
-    private static Map<String, Object> sectionLabel(String text) {
-        Map<String, Object> label = Div.color(Div.text(text, 13, "medium"), Palette.MUTED);
+    private static Map<String, Object> sectionLabel(String text, Palette p) {
+        Map<String, Object> label = Div.color(Div.text(text, 13, "medium"), p.muted());
         Div.margins(label, 16, 0, 8, 2);
         return label;
     }
 
     private static String count(int n, String noun) {
         return n + " " + noun + (n == 1 ? "" : "s");
+    }
+
+    private record Col(String label, String columnName, int order) {}
+
+    /** Ordered visible columns for a list: built-in system columns + custom attributes,
+     *  each honoring the field-hint visibility/order so the UI is config-driven. */
+    @SuppressWarnings("unchecked")
+    private static List<Col> listColumns(Map<String, Object> meta) {
+        List<Col> cols = new ArrayList<>();
+        for (Map<String, Object> sc : (List<Map<String, Object>>) meta.getOrDefault("systemColumns", List.of())) {
+            if (Boolean.TRUE.equals(sc.get("visibleInList"))) {
+                cols.add(new Col(str(sc.get("displayName")), str(sc.get("columnName")), orderOf(sc)));
+            }
+        }
+        for (Map<String, Object> a : visible(
+                (List<Map<String, Object>>) meta.getOrDefault("attributes", List.of()), "visibleInList")) {
+            cols.add(new Col(str(a.get("displayName")), str(a.get("columnName")), orderOf(a)));
+        }
+        cols.sort(Comparator.comparingInt(Col::order));
+        return cols;
+    }
+
+    private static List<String> headerLabels(List<Col> cols) {
+        return cols.stream().map(Col::label).toList();
+    }
+
+    private static List<String> rowCells(List<Col> cols, Map<String, Object> row) {
+        return cols.stream().map(c -> cellByColumn(c.columnName(), row)).toList();
+    }
+
+    private static String cellByColumn(String columnName, Map<String, Object> row) {
+        if ("_posted".equals(columnName)) {
+            return Boolean.TRUE.equals(row.get("_posted")) ? "Posted" : "Draft";
+        }
+        Object display = row.get(columnName + "_display");
+        Object value = display != null ? display : row.get(columnName);
+        return value == null ? "" : value.toString();
+    }
+
+    private static int orderOf(Map<String, Object> m) {
+        Object o = m.get("order");
+        return o == null ? 0 : ((Number) o).intValue();
     }
 
     private static List<Map<String, Object>> visible(List<Map<String, Object>> attrs, String slot) {

@@ -31,6 +31,11 @@ public final class Div {
         return node;
     }
 
+    public static Map<String, Object> maxLines(Map<String, Object> node, int lines) {
+        node.put("max_lines", lines);
+        return node;
+    }
+
     public static Map<String, Object> container(String orientation, List<Map<String, Object>> items) {
         Map<String, Object> node = node("container");
         node.put("orientation", orientation);
@@ -157,6 +162,12 @@ public final class Div {
 
     public static Map<String, Object> matchWidth(Map<String, Object> node) {
         node.put("width", Map.of("type", "match_parent"));
+        return node;
+    }
+
+    /** Size to content (not stretched to the parent) so children keep natural width. */
+    public static Map<String, Object> wrapWidth(Map<String, Object> node) {
+        node.put("width", Map.of("type", "wrap_content"));
         return node;
     }
 

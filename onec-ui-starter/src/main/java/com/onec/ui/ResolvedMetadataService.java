@@ -45,6 +45,9 @@ public class ResolvedMetadataService {
         Map<String, FieldHint> hints = layoutResolver.resolveFieldHints(
                 uiLayout, "catalog", d.logicalName());
         map.put("attributes", describeAttributes(d.attributes(), hints));
+        map.put("systemColumns", List.of(
+                systemColumn("code", "Code", "_code", hints),
+                systemColumn("description", "Description", "_description", hints)));
         return map;
     }
 
@@ -61,6 +64,10 @@ public class ResolvedMetadataService {
         Map<String, FieldHint> hints = layoutResolver.resolveFieldHints(
                 uiLayout, "document", d.logicalName());
         map.put("attributes", describeAttributes(d.attributes(), hints));
+        map.put("systemColumns", List.of(
+                systemColumn("number", "Number", "_number", hints),
+                systemColumn("date", "Date", "_date", hints),
+                systemColumn("posted", "Status", "_posted", hints)));
         map.put("tabularSections", d.tabularSections().stream().map(ts -> {
             Map<String, Object> tsMap = new LinkedHashMap<>();
             tsMap.put("name", ts.name());
@@ -85,6 +92,25 @@ public class ResolvedMetadataService {
                 uiLayout, "register", d.logicalName());
         map.put("dimensions", describeAttributes(d.dimensions(), hints));
         map.put("resources", describeAttributes(d.resources(), hints));
+        return map;
+    }
+
+    /**
+     * Describes a built-in system column (code/description/number/date/posted) so it
+     * honors the same field-hint config as custom attributes — a developer can hide
+     * or reorder it from the layout DSL (e.g. {@code .field("code").hideInList()})
+     * without touching frontend code. Visibility defaults to shown when unset.
+     */
+    private Map<String, Object> systemColumn(String fieldName, String displayName, String columnName,
+                                             Map<String, FieldHint> hints) {
+        FieldHint hint = hints.get(fieldName);
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("fieldName", fieldName);
+        map.put("displayName", displayName);
+        map.put("columnName", columnName);
+        map.put("visibleInList", pick(hint == null ? null : hint.visibleInList(), Boolean.TRUE));
+        map.put("visibleInDetail", pick(hint == null ? null : hint.visibleInDetail(), Boolean.TRUE));
+        map.put("order", pick(hint == null ? null : hint.order(), Integer.MIN_VALUE));
         return map;
     }
 
