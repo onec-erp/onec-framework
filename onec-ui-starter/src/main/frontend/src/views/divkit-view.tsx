@@ -1,42 +1,51 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { DivKit, type DivKitProps } from "@divkitframework/react";
+import { useAuth } from "@/providers/auth-provider";
 import "@divkitframework/divkit/dist/client.css";
 
 /**
- * Generic DivKit surface renderer. Fetches the server-emitted DivKit card for
- * the current route from /api/divkit/* and renders it with the official
- * DivKit React wrapper. Navigation/profile-switch intents arrive as onec://
- * action URLs (a non-builtin protocol, so DivKit routes them to onCustomAction)
- * and are mapped to react-router. This same component backs every ?renderer=divkit
- * route — the server owns the screens, the client just renders + routes.
+ * The whole authenticated app: a full-screen DivKit canvas. It fetches the
+ * server-emitted card for the current route from /api/divkit/* — which already
+ * contains the responsive chrome (top bar, sidebar on desktop / bottom nav on
+ * mobile) plus the surface content — and renders it. The client only routes:
+ * onec:// action URLs (a non-builtin protocol, so DivKit hands them to
+ * onCustomAction) become navigation, persona switches, and sign-out.
+ *
+ * Viewport is sent to the server (?viewport=mobile) so the layout is chosen
+ * server-side — the same mechanism a Flutter client would use.
  */
-function withDivkit(path: string): string {
-  return path.includes("?") ? `${path}&renderer=divkit` : `${path}?renderer=divkit`;
-}
+const MOBILE_BREAKPOINT = 768;
 
 export function DivKitView() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [profile, setProfile] = useState<string | null>(null);
+  const [mobile, setMobile] = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
   const [card, setCard] = useState<DivKitProps["json"] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // location.pathname excludes the /ui basename: "/", "/catalogs/foo", etc.
+  useEffect(() => {
+    const onResize = () => setMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const endpoint = useMemo(() => {
     const p = location.pathname;
-    if (p === "/" || p === "") {
-      return profile
-        ? `/api/divkit/app?profile=${encodeURIComponent(profile)}`
-        : "/api/divkit/app";
-    }
-    return `/api/divkit${p}`;
-  }, [location.pathname, profile]);
+    const isHome = p === "/" || p === "";
+    const base = isHome ? "/api/divkit/app" : `/api/divkit${p}`;
+    const qs = new URLSearchParams();
+    if (mobile) qs.set("viewport", "mobile");
+    if (isHome && profile) qs.set("profile", profile);
+    const q = qs.toString();
+    return q ? `${base}?${q}` : base;
+  }, [location.pathname, profile, mobile]);
 
   useEffect(() => {
     let cancelled = false;
     setError(null);
-    setCard(null);
     fetch(endpoint, { credentials: "include" })
       .then(async (r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -57,30 +66,42 @@ export function DivKitView() {
     (action: { url?: string }) => {
       const url = action?.url;
       if (!url || !url.startsWith("onec://")) return;
-      const rest = url.slice("onec://".length); // "app?profile=cleaning" | "documents/foo/id"
+      const rest = url.slice("onec://".length); // "logout" | "app?profile=x" | "documents/foo/id"
+      if (rest === "logout") {
+        logout().finally(() => navigate("/login"));
+        return;
+      }
       if (rest.startsWith("app")) {
         const q = rest.indexOf("?");
         const params = new URLSearchParams(q >= 0 ? rest.slice(q + 1) : "");
         setProfile(params.get("profile"));
-        if (location.pathname !== "/") navigate(withDivkit("/"));
+        if (location.pathname !== "/") navigate("/");
         return;
       }
-      navigate(withDivkit("/" + rest));
+      navigate("/" + rest);
     },
-    [navigate, location.pathname]
+    [navigate, location.pathname, logout]
   );
 
   if (error) {
-    return <div className="p-6 text-sm text-destructive">Failed to load DivKit surface: {error}</div>;
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background text-sm text-destructive">
+        Failed to load: {error}
+      </div>
+    );
   }
   if (!card) {
-    return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background text-sm text-muted-foreground">
+        Loading…
+      </div>
+    );
   }
 
   return (
-    <div className="p-4">
+    <div className="h-screen w-screen overflow-hidden">
       <DivKit
-        id={`onec:${endpoint}`}
+        id={`onec:${mobile ? "m" : "d"}:${location.pathname}`}
         json={card}
         onCustomAction={onCustomAction as NonNullable<DivKitProps["onCustomAction"]>}
       />
