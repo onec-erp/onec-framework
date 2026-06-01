@@ -41,6 +41,7 @@ public class DivKitController {
     private final UiAccessService access;
     private final CurrentUserResolver currentUserResolver;
     private final ResolvedMetadataService resolvedMetadata;
+    private final UiViewResolver viewResolver;
     private final CatalogQueryService catalogQuery;
     private final DocumentQueryService documentQuery;
     private final RegisterQueryService registerQuery;
@@ -51,6 +52,7 @@ public class DivKitController {
                             UiAccessService access,
                             CurrentUserResolver currentUserResolver,
                             ResolvedMetadataService resolvedMetadata,
+                            UiViewResolver viewResolver,
                             CatalogQueryService catalogQuery,
                             DocumentQueryService documentQuery,
                             RegisterQueryService registerQuery) {
@@ -60,6 +62,7 @@ public class DivKitController {
         this.access = access;
         this.currentUserResolver = currentUserResolver;
         this.resolvedMetadata = resolvedMetadata;
+        this.viewResolver = viewResolver;
         this.catalogQuery = catalogQuery;
         this.documentQuery = documentQuery;
         this.registerQuery = registerQuery;
@@ -96,7 +99,7 @@ public class DivKitController {
         access.requireRead(principal, desc);
         Palette p = Palette.of(theme);
         Map<String, Object> content = SurfaceDivBuilder.catalogList(
-                resolvedMetadata.describeCatalog(desc), catalogQuery.list(desc), p);
+                viewResolver.catalogList(desc), catalogQuery.list(desc), p);
         return renderShell(principal, profile, isMobile(viewport), p, "/catalogs/" + name, content);
     }
 
@@ -112,7 +115,7 @@ public class DivKitController {
         access.requireRead(principal, desc);
         Palette p = Palette.of(theme);
         Map<String, Object> content = SurfaceDivBuilder.documentList(
-                resolvedMetadata.describeDocument(desc), documentQuery.list(desc, from, to), name, p);
+                viewResolver.documentList(desc), documentQuery.list(desc, from, to), name, p);
         return renderShell(principal, profile, isMobile(viewport), p, "/documents/" + name, content);
     }
 

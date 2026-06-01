@@ -36,7 +36,6 @@ public class UiConfig implements OneCUiConfigurer {
                 .order(0)
                 .icon("home")
                 .catalog(Property.class, c -> c
-                        .field("code").hideInList()
                         .field("displayName").order(0)
                         .field("address").order(1)
                         .field("capacityAdults").order(2)

@@ -1,5 +1,7 @@
 package com.onec.ui.divkit;
 
+import com.onec.ui.ResolvedListView;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -18,30 +20,28 @@ public final class SurfaceDivBuilder {
 
     // ----- catalog list -----
 
-    public static Map<String, Object> catalogList(Map<String, Object> meta, List<Map<String, Object>> rows, Palette p) {
-        List<Col> cols = listColumns(meta);
+    public static Map<String, Object> catalogList(ResolvedListView view, List<Map<String, Object>> rows, Palette p) {
         List<Components.Row> body = new ArrayList<>();
         for (Map<String, Object> row : rows) {
-            body.add(new Components.Row(rowCells(cols, row), null));
+            body.add(new Components.Row(rowCells(view, row), null));
         }
         return content(List.of(
-                Components.pageHeader(str(meta.get("name")), count(rows.size(), "item"), p),
-                Components.table(headerLabels(cols), body, p)));
+                Components.pageHeader(view.title(), count(rows.size(), "item"), p),
+                Components.table(headerLabels(view), body, p)));
     }
 
     // ----- document list -----
 
-    public static Map<String, Object> documentList(Map<String, Object> meta, List<Map<String, Object>> rows,
+    public static Map<String, Object> documentList(ResolvedListView view, List<Map<String, Object>> rows,
                                                    String routeName, Palette p) {
-        List<Col> cols = listColumns(meta);
         List<Components.Row> body = new ArrayList<>();
         for (Map<String, Object> row : rows) {
             String url = "onec://documents/" + routeName + "/" + str(row.get("_id"));
-            body.add(new Components.Row(rowCells(cols, row), url));
+            body.add(new Components.Row(rowCells(view, row), url));
         }
         return content(List.of(
-                Components.pageHeader(str(meta.get("name")), count(rows.size(), "document"), p),
-                Components.table(headerLabels(cols), body, p)));
+                Components.pageHeader(view.title(), count(rows.size(), "document"), p),
+                Components.table(headerLabels(view), body, p)));
     }
 
     // ----- document detail -----
@@ -162,32 +162,12 @@ public final class SurfaceDivBuilder {
         return n + " " + noun + (n == 1 ? "" : "s");
     }
 
-    private record Col(String label, String columnName, int order) {}
-
-    /** Ordered visible columns for a list: built-in system columns + custom attributes,
-     *  each honoring the field-hint visibility/order so the UI is config-driven. */
-    @SuppressWarnings("unchecked")
-    private static List<Col> listColumns(Map<String, Object> meta) {
-        List<Col> cols = new ArrayList<>();
-        for (Map<String, Object> sc : (List<Map<String, Object>>) meta.getOrDefault("systemColumns", List.of())) {
-            if (Boolean.TRUE.equals(sc.get("visibleInList"))) {
-                cols.add(new Col(str(sc.get("displayName")), str(sc.get("columnName")), orderOf(sc)));
-            }
-        }
-        for (Map<String, Object> a : visible(
-                (List<Map<String, Object>>) meta.getOrDefault("attributes", List.of()), "visibleInList")) {
-            cols.add(new Col(str(a.get("displayName")), str(a.get("columnName")), orderOf(a)));
-        }
-        cols.sort(Comparator.comparingInt(Col::order));
-        return cols;
+    private static List<String> headerLabels(ResolvedListView view) {
+        return view.columns().stream().map(ResolvedListView.Column::label).toList();
     }
 
-    private static List<String> headerLabels(List<Col> cols) {
-        return cols.stream().map(Col::label).toList();
-    }
-
-    private static List<String> rowCells(List<Col> cols, Map<String, Object> row) {
-        return cols.stream().map(c -> cellByColumn(c.columnName(), row)).toList();
+    private static List<String> rowCells(ResolvedListView view, Map<String, Object> row) {
+        return view.columns().stream().map(c -> cellByColumn(c.columnName(), row)).toList();
     }
 
     private static String cellByColumn(String columnName, Map<String, Object> row) {
@@ -197,11 +177,6 @@ public final class SurfaceDivBuilder {
         Object display = row.get(columnName + "_display");
         Object value = display != null ? display : row.get(columnName);
         return value == null ? "" : value.toString();
-    }
-
-    private static int orderOf(Map<String, Object> m) {
-        Object o = m.get("order");
-        return o == null ? 0 : ((Number) o).intValue();
     }
 
     private static List<Map<String, Object>> visible(List<Map<String, Object>> attrs, String slot) {

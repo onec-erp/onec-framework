@@ -120,17 +120,24 @@ public class UiAutoConfiguration implements WebMvcConfigurer {
     }
 
     @Bean
+    public UiViewResolver uiViewResolver(ResolvedMetadataService resolvedMetadata,
+                                         org.springframework.beans.factory.ObjectProvider<com.onec.ui.EntityView> entityViews) {
+        return new UiViewResolver(resolvedMetadata, entityViews.orderedStream().toList());
+    }
+
+    @Bean
     public DivKitController divKitController(com.onec.ui.UiLayout uiLayout,
                                              com.onec.ui.UiLayoutResolver layoutResolver,
                                              com.onec.ui.UiProfileResolver profileResolver,
                                              UiAccessService access,
                                              CurrentUserResolver currentUserResolver,
                                              ResolvedMetadataService resolvedMetadata,
+                                             UiViewResolver uiViewResolver,
                                              CatalogQueryService catalogQueryService,
                                              DocumentQueryService documentQueryService,
                                              RegisterQueryService registerQueryService) {
         return new DivKitController(uiLayout, layoutResolver, profileResolver, access, currentUserResolver,
-                resolvedMetadata, catalogQueryService, documentQueryService, registerQueryService);
+                resolvedMetadata, uiViewResolver, catalogQueryService, documentQueryService, registerQueryService);
     }
 
 }
