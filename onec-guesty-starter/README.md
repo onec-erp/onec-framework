@@ -78,6 +78,19 @@ List endpoints accept a raw query map (`limit`, `skip`, `fields` (space-separate
 `filters`, and endpoint-specific keys), so the full API surface is reachable without a method per
 filter. Non-2xx responses raise `GuestyApiException` carrying the status and body.
 
+### Two endpoint quirks worth knowing
+
+- **Reservations default to a thin projection.** Guesty's `/reservations` omits `status`, `source`,
+  `nightsCount` and the entire `money` object unless you ask for them — so a `Reservation` comes back
+  with `money == null` (no `hostPayout`) and no warning. Pass an explicit `fields` projection when you
+  need money/status, e.g.
+  `client.listReservations(Map.of("fields", "status source money nightsCount checkIn checkOut listingId guestId", "limit", 25))`.
+- **Guests use `/guests-crud`, which is different.** It requires a `columns` query param (a
+  space-separated *string*, not the `fields` key) and names the page total `total` rather than `count`.
+  The client handles both for you: `listGuests(...)` supplies a default `columns` when you omit it,
+  translates a `fields` key to `columns`, and `Page` maps `total` so pagination drains correctly. So
+  `guesty.client().listGuests(Map.of("limit", 25))` just works.
+
 ## Live probe
 
 `GuestyLiveProbeTest` exercises the real API; it is skipped unless credentials are in the environment:

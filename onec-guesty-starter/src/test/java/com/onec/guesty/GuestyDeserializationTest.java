@@ -1,5 +1,6 @@
 package com.onec.guesty;
 
+import com.onec.guesty.model.Guest;
 import com.onec.guesty.model.Listing;
 import com.onec.guesty.model.Page;
 import com.onec.guesty.model.Reservation;
@@ -97,6 +98,28 @@ class GuestyDeserializationTest {
         assertThat(r.money().balanceDue()).isEqualByComparingTo(new BigDecimal("2360"));
         assertThat(r.checkIn()).isNotNull();
         assertThat(r.checkOut()).isAfter(r.checkIn());
+    }
+
+    /**
+     * The {@code /guests-crud} endpoint names the page total {@code total}, not {@code count}. Without
+     * the {@link Page} alias this deserialises to {@code count == 0}, so {@code hasMore()} is false and
+     * {@link GuestyService} pagination stops after the first page — silently dropping every later guest.
+     */
+    private static final String GUESTS_JSON = """
+            {"results":[
+              {"_id":"698f27c436dbb23db89dfe16","fullName":"Olga Epova",
+               "emails":["olga@example.com"],"phones":["+34600000000"]}
+            ],"total":42,"limit":1,"skip":0}
+            """;
+
+    @Test
+    void parsesGuestsPageWithTotalEnvelope() throws Exception {
+        Page<Guest> page = mapper.readValue(GUESTS_JSON, new TypeReference<>() {});
+
+        assertThat(page.count()).isEqualTo(42);   // mapped from "total"
+        assertThat(page.hasMore()).isTrue();       // would be false if count fell back to 0
+        assertThat(page.nextSkip()).isEqualTo(1);
+        assertThat(page.results().get(0).fullName()).isEqualTo("Olga Epova");
     }
 
     @Test
