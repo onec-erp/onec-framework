@@ -29,6 +29,7 @@ Implemented:
 - Dry-run posting previews
 - Domain event metadata and outbox publication hooks
 - `onec-auth-spring-boot-starter` with session-based defaults, JSON login/logout, CSRF cookie, in-memory users via `onec.auth.users`
+- UI configuration decoupled from domain: sidebar sections, dashboard widgets, and per-field hints all live in an `OneCUiConfigurer`. The `@UiHint`, `@UiSection`, and `@DashboardWidget` annotations are deprecated; layout-configured hints override the annotation when both are present. `/api/ui/metadata/dashboard` and `/manifest` both read from the configurer.
 
 ## Design Direction
 
@@ -48,12 +49,13 @@ It should remain friendly to normal Java:
 Good next slices:
 - Role-aware UI metadata and backend authorization rules for catalogs, documents, registers, and actions
 - OIDC/Keycloak profile for production authentication
-- Richer expression language for validation and posting formulas
 - UI widgets for hierarchy browsing and posting preview inspection
 - Richer live collaboration signals, such as record-level locks and stale-record banners
 - Migration snapshots and model diffs, not only additive column migration
 - Scheduled/retrying outbox relay
 - More generated test fixtures from business manifests
+- Tabular-section field hints in the `OneCUiConfigurer` DSL so `@UiHint` can be deleted entirely (currently still needed on tabular row classes)
+- DivKit renderer prototype: emit DivKit JSON from existing descriptors + layout, mount alongside the React renderer behind a `?renderer=divkit` flag, validate against list/form/dashboard surfaces
 
 ## Auth Direction
 

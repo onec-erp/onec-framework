@@ -24,6 +24,9 @@ onec:
       - username: finance
         password: finance
         roles: [FINANCE]
+      - username: ana@rentals.local
+        password: cleaner
+        roles: [CLEANER]
   mail:
     enabled: true
     provider: smtp
