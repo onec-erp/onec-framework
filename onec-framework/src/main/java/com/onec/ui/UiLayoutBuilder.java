@@ -4,11 +4,28 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public class UiLayoutBuilder {
 
     private final Map<String, SectionBuilder> sections = new LinkedHashMap<>();
     private final List<WidgetBuilder> widgets = new ArrayList<>();
+    private final Map<String, ProfileBuilder> profiles = new LinkedHashMap<>();
+    private final ShellBuilder shell = new ShellBuilder();
+    private UiIdentityLink identity;
+
+    /**
+     * Configure the app shell — chiefly the navigation presentation. Each layout
+     * is authored per {@link Viewport}, so the shell has a single nav style:
+     * {@code layout.shell().nav(NavStyle.SIDEBAR)}.
+     */
+    public ShellBuilder shell() {
+        return shell;
+    }
+
+    public ShellConfig buildShell() {
+        return shell.build();
+    }
 
     public SectionBuilder section(String name) {
         return sections.computeIfAbsent(name, SectionBuilder::new);
@@ -18,6 +35,37 @@ public class UiLayoutBuilder {
         WidgetBuilder wb = new WidgetBuilder(this, title);
         widgets.add(wb);
         return wb;
+    }
+
+    /**
+     * Declare (or extend) a named persona profile. Its {@code section(...)} and
+     * {@code widget(...)} calls are scoped to the profile and do not affect the
+     * default layout. See {@link UiLayout.Profile}.
+     */
+    public ProfileBuilder profile(String id) {
+        return profiles.computeIfAbsent(id, ProfileBuilder::new);
+    }
+
+    public List<UiLayout.Profile> buildProfiles() {
+        List<UiLayout.Profile> result = new ArrayList<>();
+        for (ProfileBuilder pb : profiles.values()) {
+            result.add(pb.buildProfile());
+        }
+        return result;
+    }
+
+    /**
+     * Link authenticated accounts to a catalog record by matching the login to
+     * {@code loginField}, so persona UIs can resolve "the current person".
+     * See {@link UiIdentityLink}.
+     */
+    public UiLayoutBuilder identity(Class<?> directoryClass, String loginField) {
+        this.identity = new UiIdentityLink(directoryClass, loginField);
+        return this;
+    }
+
+    public UiIdentityLink buildIdentity() {
+        return identity;
     }
 
     public List<UiLayout.Section> build() {
@@ -73,13 +121,33 @@ public class UiLayoutBuilder {
             return this;
         }
 
+        public SectionBuilder catalog(Class<?> clazz, Consumer<EntityConfigBuilder> configurer) {
+            return entity("catalog", clazz, configurer);
+        }
+
         public SectionBuilder document(Class<?> clazz) {
             entities.add(new EntityRef("document", clazz));
             return this;
         }
 
+        public SectionBuilder document(Class<?> clazz, Consumer<EntityConfigBuilder> configurer) {
+            return entity("document", clazz, configurer);
+        }
+
         public SectionBuilder register(Class<?> clazz) {
             entities.add(new EntityRef("register", clazz));
+            return this;
+        }
+
+        public SectionBuilder register(Class<?> clazz, Consumer<EntityConfigBuilder> configurer) {
+            return entity("register", clazz, configurer);
+        }
+
+        private SectionBuilder entity(String type, Class<?> clazz,
+                                       Consumer<EntityConfigBuilder> configurer) {
+            EntityConfigBuilder cfg = new EntityConfigBuilder();
+            configurer.accept(cfg);
+            entities.add(new EntityRef(type, clazz, cfg.buildFieldHints()));
             return this;
         }
 
@@ -175,7 +243,75 @@ public class UiLayoutBuilder {
         }
     }
 
-    public record EntityRef(String type, Class<?> javaClass) {}
+    /**
+     * Configures a named persona profile. Inherits {@code section(...)} and
+     * {@code widget(...)} from {@link UiLayoutBuilder} (scoped to this profile)
+     * and adds persona metadata: target {@code roles}, branding and match
+     * {@code priority}.
+     */
+    public static class ProfileBuilder extends UiLayoutBuilder {
+        private final String id;
+        private String title = "";
+        private String theme = "";
+        private int priority = 0;
+        private final List<String> roles = new ArrayList<>();
+
+        ProfileBuilder(String id) {
+            this.id = id;
+        }
+
+        public ProfileBuilder title(String title) {
+            this.title = title;
+            return this;
+        }
+
+        public ProfileBuilder theme(String theme) {
+            this.theme = theme;
+            return this;
+        }
+
+        public ProfileBuilder priority(int priority) {
+            this.priority = priority;
+            return this;
+        }
+
+        /** Roles that resolve a user into this profile. Empty means "all users". */
+        public ProfileBuilder roles(String... roles) {
+            this.roles.addAll(List.of(roles));
+            return this;
+        }
+
+        UiLayout.Profile buildProfile() {
+            return new UiLayout.Profile(id, title, theme, List.copyOf(roles), priority,
+                    build(), buildWidgets());
+        }
+    }
+
+    /** Builds the {@link ShellConfig} — this layout's navigation presentation. */
+    public static class ShellBuilder {
+        private NavStyle nav;
+
+        /** Nav presentation for this layout's viewport. */
+        public ShellBuilder nav(NavStyle style) {
+            this.nav = style;
+            return this;
+        }
+
+        ShellConfig build() {
+            return new ShellConfig(nav);
+        }
+    }
+
+    public record EntityRef(String type, Class<?> javaClass, Map<String, FieldHint> fieldHints) {
+        public EntityRef {
+            fieldHints = fieldHints == null ? Map.of() : Map.copyOf(fieldHints);
+        }
+
+        /** Convenience constructor for callers that don't provide field hints. */
+        public EntityRef(String type, Class<?> javaClass) {
+            this(type, javaClass, Map.of());
+        }
+    }
 
     public record WidgetConfig(
             String title,

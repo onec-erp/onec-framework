@@ -15,16 +15,58 @@ public class UiLayoutResolver {
         this.registry = registry;
     }
 
+    /**
+     * Look up field hints for an entity declared in the layout.
+     *
+     * <p>Returns an empty map if the entity is not referenced by any section or
+     * was added via the no-lambda overload. Multiple sections referencing the
+     * same entity are not expected; the first match wins.</p>
+     */
+    public Map<String, FieldHint> resolveFieldHints(UiLayout layout,
+                                                     String entityType,
+                                                     String entityName) {
+        return resolveFieldHints(layout.sections(), entityType, entityName);
+    }
+
+    public Map<String, FieldHint> resolveFieldHints(UiLayout.Profile profile,
+                                                     String entityType,
+                                                     String entityName) {
+        return resolveFieldHints(profile.sections(), entityType, entityName);
+    }
+
+    private Map<String, FieldHint> resolveFieldHints(List<UiLayout.Section> sections,
+                                                     String entityType,
+                                                     String entityName) {
+        for (UiLayout.Section section : sections) {
+            for (UiLayoutBuilder.EntityRef ref : section.entityRefs()) {
+                if (!ref.type().equals(entityType)) continue;
+                String resolved = resolveEntityNameByClass(ref.type(), ref.javaClass());
+                if (entityName.equals(resolved)) {
+                    return ref.fieldHints();
+                }
+            }
+        }
+        return Map.of();
+    }
+
     public List<UiLayout.ResolvedSection> resolve(UiLayout layout) {
+        return resolveSections(layout.sections());
+    }
+
+    public List<UiLayout.ResolvedSection> resolve(UiLayout.Profile profile) {
+        return resolveSections(profile.sections());
+    }
+
+    private List<UiLayout.ResolvedSection> resolveSections(List<UiLayout.Section> sections) {
         List<UiLayout.ResolvedSection> result = new ArrayList<>();
 
-        for (UiLayout.Section section : layout.sections()) {
+        for (UiLayout.Section section : sections) {
             List<UiLayout.ResolvedItem> items = new ArrayList<>();
             for (UiLayoutBuilder.EntityRef ref : section.entityRefs()) {
                 String name = resolveEntityName(ref);
                 if (name != null) {
                     String href = "/" + ref.type() + "s/" + toSnakeCase(name);
-                    items.add(new UiLayout.ResolvedItem(name, ref.type(), href));
+                    items.add(new UiLayout.ResolvedItem(name, ref.type(), href, ref.javaClass()));
                 }
             }
             result.add(new UiLayout.ResolvedSection(
@@ -44,15 +86,31 @@ public class UiLayoutResolver {
      * If the layout has explicit widgets, use those; otherwise fall back to annotation-based.
      */
     public List<DashboardWidgetDescriptor> resolveWidgets(UiLayout layout) {
-        if (layout.widgets().isEmpty()) {
+        return resolveWidgets(layout.widgets());
+    }
+
+    public List<DashboardWidgetDescriptor> resolveWidgets(UiLayout.Profile profile) {
+        return resolveWidgets(profile.widgets());
+    }
+
+    private List<DashboardWidgetDescriptor> resolveWidgets(List<UiLayoutBuilder.WidgetConfig> widgets) {
+        if (widgets.isEmpty()) {
             // Fall back to annotation-based widgets from registry
             return registry.allDashboardWidgets().stream()
                     .sorted(java.util.Comparator.comparingInt(DashboardWidgetDescriptor::order))
                     .toList();
         }
+        return resolveWidgetConfigs(widgets);
+    }
 
+    /**
+     * Resolve explicit widget configs (e.g. composed by a {@link Page}) to
+     * descriptors. Unlike {@link #resolveWidgets}, an empty list yields an empty
+     * result — no annotation fallback — so a page renders exactly what it composes.
+     */
+    public List<DashboardWidgetDescriptor> resolveWidgetConfigs(List<UiLayoutBuilder.WidgetConfig> widgets) {
         List<DashboardWidgetDescriptor> result = new ArrayList<>();
-        for (UiLayoutBuilder.WidgetConfig wc : layout.widgets()) {
+        for (UiLayoutBuilder.WidgetConfig wc : widgets) {
             String entityName = resolveEntityNameByClass(wc.entityType(), wc.entityClass());
             if (entityName == null) continue;
 

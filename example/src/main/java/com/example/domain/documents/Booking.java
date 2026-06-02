@@ -8,17 +8,15 @@ import com.example.domain.enumerations.BookingStatus;
 import com.example.domain.registers.OccupancyRegister;
 import com.onec.annotations.AccessControl;
 import com.onec.annotations.Attribute;
-import com.onec.annotations.BusinessRule;
-import com.onec.annotations.DashboardWidget;
 import com.onec.annotations.Document;
 import com.onec.annotations.TabularSection;
-import com.onec.annotations.UiHint;
-import com.onec.annotations.UiSection;
 import com.onec.lifecycle.BeforeWriteHandler;
 import com.onec.lifecycle.Postable;
 import com.onec.mail.template.MailTemplate;
 import com.onec.model.DocumentObject;
 import com.onec.posting.PostingContext;
+import com.onec.rules.BusinessRule;
+import com.onec.rules.Validated;
 import com.onec.types.Ref;
 
 import lombok.Getter;
@@ -32,81 +30,67 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Document(name = "Bookings", numberPrefix = "B-", numberLength = 14, context = "Rentals")
-@AccessControl(readRoles = {"ADMIN", "RENTALS"}, writeRoles = {"ADMIN", "RENTALS"})
-@UiSection(value = "Rentals", order = 2)
-@BusinessRule(name = "property-required", expression = "property != null")
+@AccessControl(readRoles = {"RENTALS", "CLEANER"}, writeRoles = {"RENTALS"})
 @MailTemplate(name = "booking-confirmed",
         subject = "Your booking is confirmed",
         html = true)
-@DashboardWidget(title = "Booking Calendar", type = "calendar", order = 0, width = "1/2",
-        dateField = "checkIn", titleField = "summary")
-@DashboardWidget(title = "Upcoming Bookings", type = "list", order = 1, width = "1/2", maxItems = 8)
 @Getter
 @Setter
-public class Booking extends DocumentObject implements BeforeWriteHandler, Postable {
+public class Booking extends DocumentObject implements BeforeWriteHandler, Postable, Validated {
 
     @Attribute(required = true)
-    @UiHint(order = 0)
     private Ref<Property> property;
 
     @Attribute
-    @UiHint(order = 1)
     private BookingStatus status;
 
     @Attribute
-    @UiHint(order = 2)
     private BookingChannel channel;
 
     @Attribute(displayName = "Check-in", required = true)
-    @UiHint(order = 3)
     private LocalDate checkIn;
 
     @Attribute(displayName = "Check-out", required = true)
-    @UiHint(order = 4)
     private LocalDate checkOut;
 
     @Attribute(displayName = "Adults")
-    @UiHint(order = 5)
     private Integer adults;
 
     @Attribute(displayName = "Children")
-    @UiHint(order = 6)
     private Integer children;
 
     @Attribute(displayName = "Nights")
-    @UiHint(order = 7, visibleInForm = false)
     private Integer nights;
 
     @Attribute(displayName = "Avg. price / night", precision = 12, scale = 2)
-    @UiHint(order = 8)
     private BigDecimal nightRate;
 
     @Attribute(displayName = "Cleaning fee", precision = 12, scale = 2)
-    @UiHint(order = 9)
     private BigDecimal cleaningFee;
 
     @Attribute(displayName = "Total (gross)", precision = 14, scale = 2)
-    @UiHint(order = 10, visibleInForm = false)
     private BigDecimal totalGross;
 
     @Attribute(length = 200)
-    @UiHint(order = 11, visibleInForm = false)
     private String summary;
 
     @Attribute(length = 1000)
-    @UiHint(order = 20)
     private String notes;
 
     @Attribute
-    @UiHint(order = 12)
     private Ref<Client> primaryClient;
 
     @Attribute(displayName = "Assigned to")
-    @UiHint(order = 13)
     private Ref<Employee> assignedTo;
 
     @TabularSection(name = "guests")
     private List<Guest> guests = new ArrayList<>();
+
+    @Override
+    public List<BusinessRule> rules() {
+        return List.of(
+                new BusinessRule("property-required", "Property is required", () -> property != null));
+    }
 
     @Override
     public void beforeWrite() {
