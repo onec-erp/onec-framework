@@ -36,8 +36,9 @@ public class DashboardPage implements Page {
                 .config("endDateField", "check_out")
                 .config("secondaryField", "client_display,property_display");
 
-        b.widget("Bookings by status").type("kanban").width("1/2").order(5).document(Booking.class)
-                .config("groupBy", "_posted").maxItems(12);
+        // Hidden for the moment — restore to bring the Bookings-by-status kanban back.
+        // b.widget("Bookings by status").type("kanban").width("1/2").order(5).document(Booking.class)
+        //         .config("groupBy", "_posted").maxItems(12);
 
         b.widget("Revenue by property").type("chart").width("1/2").order(6).document(Bill.class)
                 .config("kind", "bar").config("groupBy", "property_display")

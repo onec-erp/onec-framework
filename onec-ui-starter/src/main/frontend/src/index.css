@@ -116,9 +116,28 @@
   }
 }
 
-/* DivKit mounts div-custom widgets (chart/calendar/kanban) into this element; it's
-   inline by default, so make it fill the weighted cell DivKit places it in. */
-onec-widget {
+/* DivKit mounts div-custom blocks (chart/calendar/kanban widgets, the entity form)
+   into these elements; they're inline by default, so make them fill the cell DivKit
+   places them in. DivKit marks action-less custom blocks pointer-events:none, which
+   (being inherited) would disable every control inside the React subtree — so restore
+   it here; the React widgets/forms handle their own clicks/drags/hovers. */
+onec-widget,
+onec-form {
   display: block;
   width: 100%;
+  pointer-events: auto;
+}
+
+/* List rows carry the "row" DivKit extension, which stamps [data-onec-row]. Highlight
+   the line on hover so it reads as clickable. !important overrides DivKit's inline
+   zebra-stripe background on alternating rows. */
+[data-onec-row] {
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+[data-onec-row]:hover {
+  background-color: rgba(0, 0, 0, 0.045) !important;
+}
+.dark [data-onec-row]:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
 }

@@ -55,6 +55,13 @@ public class DocumentQueryService {
         return rows;
     }
 
+    public long count(DocumentDescriptor desc) {
+        return jdbi.withHandle(h ->
+                h.createQuery("SELECT COUNT(*) FROM " + desc.tableName() + " WHERE _deletion_mark = false")
+                        .mapTo(Long.class)
+                        .one());
+    }
+
     public Map<String, Object> get(DocumentDescriptor desc, UUID id) {
         Map<String, Object> doc = jdbi.withHandle(h ->
                 h.createQuery("SELECT * FROM " + desc.tableName() + " WHERE _id = :id")

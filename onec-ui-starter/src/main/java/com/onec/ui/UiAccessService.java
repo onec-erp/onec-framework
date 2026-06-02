@@ -18,6 +18,9 @@ import java.util.Set;
 
 public class UiAccessService {
 
+    /** The role that bypasses all per-entity read/write checks. */
+    private static final String SUPERUSER_ROLE = "ADMIN";
+
     private final MetadataRegistry registry;
 
     public UiAccessService(MetadataRegistry registry) {
@@ -115,8 +118,13 @@ public class UiAccessService {
 
     private boolean hasAnyRole(Principal principal, List<String> requiredRoles) {
         if (principal == null) return false;
-        if (requiredRoles == null || requiredRoles.isEmpty()) return true;
         Set<String> actualRoles = roles(principal);
+        // ADMIN is the superuser: it sees and edits everything regardless of
+        // per-entity role lists.
+        if (actualRoles.contains(SUPERUSER_ROLE)) return true;
+        // Deny by default: an entity with no explicit grant is invisible and
+        // uneditable to everyone but the superuser. Access is opt-in, not opt-out.
+        if (requiredRoles == null || requiredRoles.isEmpty()) return false;
         return requiredRoles.stream()
                 .map(UiAccessService::normalizeRole)
                 .anyMatch(actualRoles::contains);

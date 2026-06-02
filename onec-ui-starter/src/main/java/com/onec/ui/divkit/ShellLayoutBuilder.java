@@ -186,6 +186,8 @@ public final class ShellLayoutBuilder {
         Map<String, Object> root = Div.vertical(List.of(bar, Div.separator(p.border())));
         Div.matchWidth(root);
         Div.background(root, p.page());
+        // Outer gap off the screen edges — owned here, not by the web shell's p-3.
+        Div.margins(root, 12, 12, 12, 12);
         return root;
     }
 
@@ -275,13 +277,27 @@ public final class ShellLayoutBuilder {
 
     // ----- BOTTOM_BAR: tab bar pinned below content -----
 
+    // A phone bottom bar fits only a handful of comfortable touch targets, so we show
+    // the first few destinations and collapse the rest behind a "More" tab that opens
+    // the {@code /menu} hub (full navigation + account). Everything stays reachable
+    // without cramming a dozen tiny labels across the width.
+    private static final int MAX_PRIMARY_TABS = 4;
+
     private static Map<String, Object> bottomNav(List<NavSection> nav, boolean compact, Palette p) {
-        List<Map<String, Object>> tabs = new ArrayList<>();
+        List<NavItem> items = new ArrayList<>();
         for (NavSection section : nav) {
-            for (NavItem item : section.items()) {
-                tabs.add(bottomTab(item, p, compact));
-            }
+            items.addAll(section.items());
         }
+
+        List<Map<String, Object>> tabs = new ArrayList<>();
+        int primary = Math.min(MAX_PRIMARY_TABS, items.size());
+        for (NavItem item : items.subList(0, primary)) {
+            tabs.add(bottomTab(item, p, compact));
+        }
+        // Always offer "More" — it's the hub for the overflow destinations, the persona
+        // switcher, theme toggle, and sign-out (none of which fit on the bar itself).
+        tabs.add(bottomTab(new NavItem("More", "onec://menu", "menu", "/menu"), p, compact));
+
         // A floating island: rounded, bordered, elevated surface. The host pins it
         // near the bottom edge with margin (see divkit-view bottom_bar). When
         // {@code compact} (tablet), it sizes to its tabs so it can hug a corner;
@@ -297,6 +313,8 @@ public final class ShellLayoutBuilder {
         Div.background(bar, p.surface());
         Div.corner(bar, compact ? 24 : 22);
         Div.stroke(bar, p.border(), 1);
+        // Outer gap off the screen edges — owned here, not by the web shell's p-3.
+        Div.margins(bar, 12, 12, 12, 12);
         return bar;
     }
 
@@ -327,5 +345,97 @@ public final class ShellLayoutBuilder {
         Div.background(tab, activeColor(item.path(), p.primarySoft(), TRANSPARENT));
         Div.action(tab, "nav", item.url());
         return tab;
+    }
+
+    // ----- MOBILE MENU: the "More" hub reached from the bottom bar -----
+
+    /**
+     * The full-screen mobile menu: every navigation destination grouped by section as
+     * tappable rows, with the account block (persona switcher, theme, sign-out) below.
+     * It's the overflow target for the bottom bar's "More" tab, so nothing the bar
+     * can't fit becomes unreachable.
+     */
+    public static Map<String, Object> menu(String brand, List<NavSection> nav, String userName,
+                                           List<ProfileLink> profiles, String activeProfileId, Palette p) {
+        List<Map<String, Object>> items = new ArrayList<>();
+
+        Map<String, Object> title = Div.text(brand != null && !brand.isBlank() ? brand : "Menu", 22, "bold");
+        Div.color(title, p.text());
+        Div.margins(title, 0, 0, 14, 0);
+        items.add(title);
+
+        for (NavSection section : nav) {
+            if (section.title() != null && !section.title().isBlank()) {
+                items.add(menuSectionHeader(section.title(), p));
+            }
+            List<Map<String, Object>> rows = new ArrayList<>();
+            for (NavItem item : section.items()) {
+                rows.add(menuRow(item, p));
+            }
+            if (!rows.isEmpty()) {
+                items.add(menuGroup(rows, p));
+            }
+        }
+
+        Map<String, Object> accountBlock = account(userName, profiles, activeProfileId, p);
+        Div.margins(accountBlock, 18, 0, 0, 0);
+        items.add(accountBlock);
+
+        Map<String, Object> root = Div.vertical(items);
+        Div.id(root, "onec-content");
+        Div.matchWidth(root);
+        Div.gap(root, 6);
+        return root;
+    }
+
+    private static Map<String, Object> menuSectionHeader(String title, Palette p) {
+        Map<String, Object> header = Div.text(title.toUpperCase(), 11, "medium");
+        Div.color(header, p.muted());
+        Div.maxLines(header, 1);
+        Div.margins(header, 14, 4, 6, 4);
+        return header;
+    }
+
+    // A section's rows on a single bordered surface card, hairline-separated — an
+    // iOS-style grouped list that reads cleanly on a narrow screen.
+    private static Map<String, Object> menuGroup(List<Map<String, Object>> rows, Palette p) {
+        List<Map<String, Object>> withSeparators = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            if (i > 0) {
+                withSeparators.add(Div.separator(p.border()));
+            }
+            withSeparators.add(rows.get(i));
+        }
+        Map<String, Object> card = Div.vertical(withSeparators);
+        Div.matchWidth(card);
+        Div.background(card, p.surface());
+        Div.corner(card, 12);
+        Div.stroke(card, p.border(), 1);
+        return card;
+    }
+
+    private static Map<String, Object> menuRow(NavItem item, Palette p) {
+        // Icon + label, left-aligned; the whole full-width row is the tap target and
+        // lights up on the active route — affordance enough without a trailing chevron
+        // (DivKit grows every flex child equally, so a right-pinned chevron isn't worth
+        // the fight). The icon stays muted; the label carries the active highlight.
+        List<Map<String, Object>> cells = new ArrayList<>();
+        Map<String, Object> glyph = icon(item.icon(), p.muted(), 18);
+        if (glyph != null) {
+            cells.add(glyph);
+        }
+        Map<String, Object> label = Div.color(Div.text(item.label(), 15, "regular"),
+                activeColor(item.path(), p.primary(), p.text()));
+        Div.maxLines(label, 1);
+        cells.add(label);
+
+        Map<String, Object> row = Div.horizontal(cells);
+        Div.gap(row, 12);
+        Div.alignV(row, "center");
+        Div.pad(row, 15, 14);
+        Div.matchWidth(row);
+        Div.background(row, activeColor(item.path(), p.primarySoft(), TRANSPARENT));
+        Div.action(row, "nav", item.url());
+        return row;
     }
 }

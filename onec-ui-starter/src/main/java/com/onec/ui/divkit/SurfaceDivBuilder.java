@@ -20,20 +20,27 @@ public final class SurfaceDivBuilder {
 
     // ----- catalog list -----
 
-    public static Map<String, Object> catalogList(ResolvedListView view, List<Map<String, Object>> rows, Palette p) {
-        return listContent(view.title(), "items", null, headerLabels(view), catalogBody(view, rows), p);
+    public static Map<String, Object> catalogList(ResolvedListView view, List<Map<String, Object>> rows,
+                                                  String routeName, String newUrl, Palette p) {
+        return listContent(view.title(), "items", newUrl, headerLabels(view),
+                catalogBody(view, rows, routeName), p);
     }
 
-    /** The table rows on their own — the payload for a {@code div-patch} of {@code onec-rows}. */
+    /**
+     * The rows stack as a {@code div-patch} of {@code onec-rows} — a single replacement
+     * node re-carrying that id (see {@link #rowsPatch}).
+     */
     public static List<Map<String, Object>> catalogRows(ResolvedListView view, List<Map<String, Object>> rows,
-                                                        Palette p) {
-        return Components.tableItems(headerLabels(view), catalogBody(view, rows), p);
+                                                        String routeName, Palette p) {
+        return rowsPatch(headerLabels(view), catalogBody(view, rows, routeName), p);
     }
 
-    private static List<Components.Row> catalogBody(ResolvedListView view, List<Map<String, Object>> rows) {
+    private static List<Components.Row> catalogBody(ResolvedListView view, List<Map<String, Object>> rows,
+                                                   String routeName) {
         List<Components.Row> body = new ArrayList<>();
         for (Map<String, Object> row : rows) {
-            body.add(new Components.Row(rowCells(view, row), null));
+            String url = "onec://catalogs/" + routeName + "/" + str(row.get("_id"));
+            body.add(new Components.Row(rowCells(view, row), url));
         }
         return body;
     }
@@ -46,10 +53,13 @@ public final class SurfaceDivBuilder {
                 documentBody(view, rows, routeName), p);
     }
 
-    /** The table rows on their own — the payload for a {@code div-patch} of {@code onec-rows}. */
+    /**
+     * The rows stack as a {@code div-patch} of {@code onec-rows} — a single replacement
+     * node re-carrying that id (see {@link #rowsPatch}).
+     */
     public static List<Map<String, Object>> documentRows(ResolvedListView view, List<Map<String, Object>> rows,
                                                          String routeName, Palette p) {
-        return Components.tableItems(headerLabels(view), documentBody(view, rows, routeName), p);
+        return rowsPatch(headerLabels(view), documentBody(view, rows, routeName), p);
     }
 
     private static List<Components.Row> documentBody(ResolvedListView view, List<Map<String, Object>> rows,
@@ -67,10 +77,11 @@ public final class SurfaceDivBuilder {
     private static Map<String, Object> listContent(String title, String nounPlural, String newUrl,
                                                    List<String> headers, List<Components.Row> body, Palette p) {
         Map<String, Object> titleNode = Div.color(Div.text(title, 22, "bold"), p.text());
+        Div.maxLines(titleNode, 1);
         List<Map<String, Object>> topRow = new ArrayList<>(List.of(
-                titleNode, Div.weight(Div.horizontal(List.of()), 1)));
+                Div.weight(titleNode, 1)));
         if (newUrl != null) {
-            topRow.add(actionPill("New", p.primary(), p.primarySoft(), newUrl));
+            topRow.add(Components.actionButton("plus", "New", p.primary(), p.primarySoft(), null, newUrl, "new"));
         }
         Map<String, Object> top = Div.horizontal(topRow);
         Div.matchWidth(top);
@@ -81,24 +92,23 @@ public final class SurfaceDivBuilder {
         Map<String, Object> header = Div.vertical(List.of(top, subtitle));
         Div.margins(header, 0, 0, 16, 0);
 
-        Map<String, Object> rowsStack = Div.id(
-                Components.tableStack(Components.tableItems(headers, body, p)), "onec-rows");
-        Map<String, Object> table = Components.scrollX(rowsStack, p);
+        Map<String, Object> table = Components.scrollX(rowsStack(headers, body, p), p);
         return content(List.of(header, table));
     }
 
-    /** A small pill button: label, colors, and an {@code onec://} action. */
-    private static Map<String, Object> actionPill(String label, String fg, String bg, String url) {
-        Map<String, Object> b = Div.text(label, 13, "medium");
-        Div.color(b, fg);
-        if (bg != null) {
-            Div.background(b, bg);
-        }
-        Div.pad(b, 7, 14);
-        Div.corner(b, 8);
-        Div.margins(b, 0, 0, 0, 8);
-        Div.action(b, "act", url);
-        return b;
+    /**
+     * The header+rows stack carrying the {@code onec-rows} id. The scroll gallery holds
+     * exactly this one child, so a live update must replace it with a single node that
+     * <em>re-carries</em> the id — not splice in the bare row list, which would leave the
+     * gallery with N children and no patch target, breaking the next update.
+     */
+    private static Map<String, Object> rowsStack(List<String> headers, List<Components.Row> body, Palette p) {
+        return Div.id(Components.tableStack(Components.tableItems(headers, body, p)), "onec-rows");
+    }
+
+    /** The single-node {@code onec-rows} replacement payload for a {@code div-patch}. */
+    private static List<Map<String, Object>> rowsPatch(List<String> headers, List<Components.Row> body, Palette p) {
+        return List.of(rowsStack(headers, body, p));
     }
 
     // ----- document detail -----
@@ -109,7 +119,8 @@ public final class SurfaceDivBuilder {
         List<Map<String, Object>> items = new ArrayList<>();
 
         boolean posted = Boolean.TRUE.equals(row.get("_posted"));
-        items.add(detailHeader(str(meta.get("name")) + " " + str(row.get("_number")), posted, editUrl, deleteUrl, p));
+        Map<String, Object> badge = Components.statusBadge(posted, posted ? "Posted" : "Draft", p);
+        items.add(detailHeader(str(meta.get("name")), str(row.get("_number")), badge, editUrl, deleteUrl, p));
 
         List<Map<String, Object>> fieldRows = new ArrayList<>();
         fieldRows.add(Components.fieldRow("Date", str(row.get("_date")), p));
@@ -117,7 +128,7 @@ public final class SurfaceDivBuilder {
                 (List<Map<String, Object>>) meta.getOrDefault("attributes", List.of()), "visibleInDetail")) {
             fieldRows.add(Components.fieldRow(str(a.get("displayName")), cell(a, row), p));
         }
-        items.add(Components.card(fieldRows, p));
+        items.add(fieldCard(fieldRows, p));
 
         for (Map<String, Object> ts : (List<Map<String, Object>>) meta.getOrDefault("tabularSections", List.of())) {
             List<Map<String, Object>> tsAttrs = (List<Map<String, Object>>) ts.getOrDefault("attributes", List.of());
@@ -143,107 +154,54 @@ public final class SurfaceDivBuilder {
         return content(items);
     }
 
-    // ----- document form (create / edit) -----
+    // ----- catalog detail -----
 
     /**
-     * A create/edit form: one labelled control per {@code visibleInForm} attribute,
-     * each bound to an {@code f_<field>} variable, over a submit button whose action
-     * the client turns into a POST/PUT. Refs and enums render as {@code div-select};
-     * everything else as {@code div-input}. Initial values are seeded via
-     * {@link #formVars} into the variables controller.
+     * A catalog item's detail surface: a header (with edit/delete actions when the
+     * caller may write) over a card of its visible system columns (code/description)
+     * and attributes. Catalogs have no posting or tabular sections, so it's flatter
+     * than {@link #documentDetail}.
      */
     @SuppressWarnings("unchecked")
-    public static Map<String, Object> documentForm(Map<String, Object> meta,
-                                                   Map<String, List<Map<String, Object>>> refOptions,
-                                                   String submitUrl, String submitLabel, String title, Palette p) {
+    public static Map<String, Object> catalogDetail(Map<String, Object> meta, Map<String, Object> row,
+                                                    String editUrl, String deleteUrl, Palette p) {
         List<Map<String, Object>> items = new ArrayList<>();
-        Map<String, Object> heading = Div.color(Div.text(title, 22, "bold"), p.text());
-        Div.margins(heading, 0, 0, 16, 0);
-        items.add(heading);
 
-        List<Map<String, Object>> fields = new ArrayList<>();
+        // Code/description lead the header (title + subtitle), so the card carries just
+        // the attributes — no duplicate Code/Description rows.
+        String description = str(row.get("_description"));
+        String code = str(row.get("_code"));
+        String title = description.isBlank() ? str(meta.get("name")) : description;
+        String subtitle = description.isBlank() ? code : (code.isBlank() ? null : code);
+        items.add(detailHeader(title, subtitle, null, editUrl, deleteUrl, p));
+
+        List<Map<String, Object>> fieldRows = new ArrayList<>();
         for (Map<String, Object> a : visible(
-                (List<Map<String, Object>>) meta.getOrDefault("attributes", List.of()), "visibleInForm")) {
-            fields.add(formField(a, refOptions, p));
+                (List<Map<String, Object>>) meta.getOrDefault("attributes", List.of()), "visibleInDetail")) {
+            fieldRows.add(Components.fieldRow(str(a.get("displayName")), cell(a, row), p));
         }
-        items.add(Components.card(fields, p));
-
-        Map<String, Object> submit = Div.text(submitLabel, 14, "medium");
-        Div.color(submit, p.primary());
-        Div.background(submit, p.primarySoft());
-        Div.pad(submit, 11, 18);
-        Div.corner(submit, 10);
-        Div.action(submit, "submit", submitUrl);
-        Map<String, Object> submitRow = Div.horizontal(List.of(submit));
-        Div.alignH(submitRow, "right");
-        Div.margins(submitRow, 8, 0, 0, 0);
-        items.add(submitRow);
+        if (!fieldRows.isEmpty()) {
+            items.add(fieldCard(fieldRows, p));
+        }
 
         return content(items);
     }
 
-    /** Seed values for a form's {@code f_<field>} variables: raw field values, or "" for create. */
-    @SuppressWarnings("unchecked")
-    public static Map<String, Object> formVars(Map<String, Object> meta, Map<String, Object> row) {
-        Map<String, Object> vars = new java.util.LinkedHashMap<>();
-        for (Map<String, Object> a : visible(
-                (List<Map<String, Object>>) meta.getOrDefault("attributes", List.of()), "visibleInForm")) {
-            String value = row == null ? "" : str(row.get(str(a.get("columnName"))));
-            vars.put("f_" + str(a.get("fieldName")), value);
-        }
-        return vars;
-    }
+    // ----- create / edit form -----
 
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> formField(Map<String, Object> a,
-                                                 Map<String, List<Map<String, Object>>> refOptions, Palette p) {
-        String field = str(a.get("fieldName"));
-        String var = "f_" + field;
-        String javaType = str(a.get("javaType"));
-        Map<String, Object> control;
-
-        if (Boolean.TRUE.equals(a.get("isRef"))) {
-            List<Map<String, Object>> opts = new ArrayList<>();
-            opts.add(Div.option("", "—"));
-            opts.addAll(refOptions.getOrDefault(field, List.of()));
-            control = Div.select(var, opts);
-        } else if (Boolean.TRUE.equals(a.get("isEnum"))) {
-            List<Map<String, Object>> opts = new ArrayList<>();
-            opts.add(Div.option("", "—"));
-            // Enum columns store the value's UUID, so the option value is the id (the
-            // server coerces it with UUID.fromString); the label is the readable name.
-            for (Map<String, Object> v : (List<Map<String, Object>>) a.getOrDefault("enumValues", List.of())) {
-                opts.add(Div.option(str(v.get("id")), str(v.get("name"))));
-            }
-            control = Div.select(var, opts);
-        } else if ("Boolean".equals(javaType)) {
-            control = Div.select(var, List.of(Div.option("true", "Yes"), Div.option("false", "No")));
-        } else {
-            control = Div.input(var, isNumeric(javaType) ? "number" : "single_line_text");
-        }
-
-        Div.matchWidth(control);
-        Div.background(control, p.page());
-        Div.stroke(control, p.border(), 1);
-        Div.corner(control, 8);
-        Div.pad(control, 10, 12);
-        control.put("font_size", 14);
-        control.put("text_color", p.text());
-        control.put("hint_color", p.faint());
-
-        Map<String, Object> label = Div.color(Div.text(str(a.get("displayName")), 12, "medium"), p.muted());
-        Div.margins(label, 0, 0, 4, 0);
-        Map<String, Object> wrap = Div.vertical(List.of(label, control));
-        Div.matchWidth(wrap);
-        Div.margins(wrap, 0, 0, 12, 0);
-        return wrap;
-    }
-
-    private static boolean isNumeric(String javaType) {
-        return switch (javaType) {
-            case "BigDecimal", "Integer", "Long", "Double", "Float", "Short", "int", "long", "double" -> true;
-            default -> false;
-        };
+    /**
+     * Emits the create/edit form as the portable {@code onec-form} custom component: a
+     * {@code div-custom} carrying a plain-JSON {@code form} descriptor (field metadata +
+     * the record's initial values + submit target). Rich controls — styled dropdowns, a
+     * calendar picker, a ref picker that can jump to the target catalog's form — need
+     * native widgets a DivKit document can't express, so this is deliberately a custom
+     * component: every client implements {@code onec-form} from the same descriptor (the
+     * web client renders it in React today; a Flutter client renders its own form later).
+     */
+    public static Map<String, Object> entityForm(Map<String, Object> descriptor) {
+        Map<String, Object> custom = Div.custom("onec-form", Map.of("form", descriptor));
+        Div.matchWidth(custom);
+        return content(List.of(custom));
     }
 
     // ----- register report -----
@@ -255,26 +213,49 @@ public final class SurfaceDivBuilder {
         String type = str(meta.get("type"));
         List<Map<String, Object>> dimensions = (List<Map<String, Object>>) meta.getOrDefault("dimensions", List.of());
         List<Map<String, Object>> resources = (List<Map<String, Object>>) meta.getOrDefault("resources", List.of());
+        boolean isBalance = "BALANCE".equals(type);
 
         List<Map<String, Object>> items = new ArrayList<>();
         items.add(Components.pageHeader(str(meta.get("name")),
-                "BALANCE".equals(type) ? "Balance register" : "Turnover register", p));
+                isBalance ? "Balance register" : "Turnover register", p));
 
-        if ("BALANCE".equals(type) && balances != null) {
-            List<String> headers = new ArrayList<>();
-            for (Map<String, Object> d : dimensions) headers.add(str(d.get("displayName")));
-            for (Map<String, Object> r : resources) headers.add(str(r.get("displayName")));
-            List<Components.Row> body = new ArrayList<>();
-            for (Map<String, Object> row : balances) {
-                List<String> cells = new ArrayList<>();
-                for (Map<String, Object> d : dimensions) cells.add(cell(d, row));
-                for (Map<String, Object> r : resources) cells.add(cell(r, row));
-                body.add(new Components.Row(cells, null));
-            }
-            items.add(sectionLabel("Balance", p));
-            items.add(Components.table(headers, body, p));
+        Map<String, Object> movementsTable = movementsTable(movements, dimensions, resources, p);
+
+        // Balance registers carry both a current balance and the movement log; show them
+        // as Balance / Movements tabs rather than two stacked lists. A turnover register
+        // has no balance, so it's just the movement log.
+        if (isBalance && balances != null) {
+            items.add(Components.tabs(List.of(
+                    Div.tab("Balance", tabBody(balanceTable(balances, dimensions, resources, p))),
+                    Div.tab("Movements", tabBody(movementsTable))), p));
+        } else {
+            items.add(movementsTable);
         }
 
+        return content(items);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> balanceTable(List<Map<String, Object>> balances,
+                                                    List<Map<String, Object>> dimensions,
+                                                    List<Map<String, Object>> resources, Palette p) {
+        List<String> headers = new ArrayList<>();
+        for (Map<String, Object> d : dimensions) headers.add(str(d.get("displayName")));
+        for (Map<String, Object> r : resources) headers.add(str(r.get("displayName")));
+        List<Components.Row> body = new ArrayList<>();
+        for (Map<String, Object> row : balances) {
+            List<String> cells = new ArrayList<>();
+            for (Map<String, Object> d : dimensions) cells.add(cell(d, row));
+            for (Map<String, Object> r : resources) cells.add(cell(r, row));
+            body.add(new Components.Row(cells, null));
+        }
+        return Components.table(headers, body, p);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> movementsTable(List<Map<String, Object>> movements,
+                                                      List<Map<String, Object>> dimensions,
+                                                      List<Map<String, Object>> resources, Palette p) {
         List<String> headers = new ArrayList<>(List.of("Period", "Type"));
         for (Map<String, Object> d : dimensions) headers.add(str(d.get("displayName")));
         for (Map<String, Object> r : resources) headers.add(str(r.get("displayName")));
@@ -287,10 +268,15 @@ public final class SurfaceDivBuilder {
             for (Map<String, Object> r : resources) cells.add(cell(r, row));
             body.add(new Components.Row(cells, null));
         }
-        items.add(sectionLabel("Movements", p));
-        items.add(Components.table(headers, body, p));
+        return Components.table(headers, body, p);
+    }
 
-        return content(items);
+    /** Wrap a tab's content with breathing room below the tab strip. */
+    private static Map<String, Object> tabBody(Map<String, Object> content) {
+        Map<String, Object> wrap = Div.vertical(List.of(content));
+        Div.matchWidth(wrap);
+        Div.margins(wrap, 12, 0, 0, 0);
+        return wrap;
     }
 
     // ----- shared helpers -----
@@ -298,6 +284,7 @@ public final class SurfaceDivBuilder {
     private static Map<String, Object> content(List<Map<String, Object>> items) {
         Map<String, Object> root = Div.vertical(items);
         Div.id(root, "onec-content");
+        Div.contentPadding(root);
         Div.matchWidth(root);
         Div.gap(root, 4);
         return root;
@@ -305,30 +292,69 @@ public final class SurfaceDivBuilder {
 
     private static final String DANGER = "#DC2626";
 
-    private static Map<String, Object> detailHeader(String title, boolean posted, String editUrl, String deleteUrl,
-                                                    Palette p) {
-        Map<String, Object> heading = Div.color(Div.text(title, 22, "bold"), p.text());
-        Map<String, Object> spacer = Div.weight(Div.horizontal(List.of()), 1);
-        Map<String, Object> badge = Components.statusBadge(posted, posted ? "Posted" : "Draft", p);
-        List<Map<String, Object>> rowItems = new ArrayList<>(List.of(heading, spacer, badge));
+    /**
+     * The detail surface header: a title (with an optional muted subtitle — e.g. a
+     * document number or catalog code, which keeps long identifiers out of the big
+     * title so it no longer wraps into the corner) on the left, and an action cluster
+     * (optional status chip + Edit/Delete) pinned right. The title takes the remaining
+     * width and ellipsizes so the actions never get crammed.
+     */
+    private static Map<String, Object> detailHeader(String title, String subtitle, Map<String, Object> badge,
+                                                    String editUrl, String deleteUrl, Palette p) {
+        Map<String, Object> titleNode = Div.color(Div.text(title, 20, "bold"), p.text());
+        Div.matchWidth(titleNode);
+        Div.maxLines(titleNode, 2);
+        List<Map<String, Object>> leftItems = new ArrayList<>(List.of(titleNode));
+        if (subtitle != null && !subtitle.isBlank()) {
+            Map<String, Object> sub = Div.color(Div.text(subtitle, 13, "regular"), p.muted());
+            Div.matchWidth(sub);
+            Div.maxLines(sub, 1);
+            Div.margins(sub, 3, 0, 0, 0);
+            leftItems.add(sub);
+        }
+        Map<String, Object> left = Div.vertical(leftItems);
+        Div.weight(left, 1);
+
+        List<Map<String, Object>> actions = new ArrayList<>();
+        if (badge != null) {
+            actions.add(badge);
+        }
         if (editUrl != null) {
-            rowItems.add(actionPill("Edit", p.primary(), p.primarySoft(), editUrl));
+            actions.add(Components.actionButton("pencil", "Edit", p.text(), p.primarySoft(), null, editUrl, "edit"));
         }
         if (deleteUrl != null) {
-            Map<String, Object> del = Div.text("Delete", 13, "medium");
-            Div.color(del, DANGER);
-            Div.pad(del, 7, 12);
-            Div.corner(del, 8);
-            Div.stroke(del, DANGER, 1);
-            Div.margins(del, 0, 0, 0, 8);
-            Div.action(del, "delete", deleteUrl);
-            rowItems.add(del);
+            actions.add(Components.actionButton("trash-2", "Delete", DANGER, null, DANGER, deleteUrl, "delete"));
         }
-        Map<String, Object> row = Div.horizontal(rowItems);
+        Map<String, Object> actionRow = Div.horizontal(actions);
+        // Hug the buttons (containers default to match_parent, which would stretch the
+        // cluster); the weighted title then pushes it to the right edge.
+        Div.wrapWidth(actionRow);
+        Div.gap(actionRow, 8);
+        Div.alignV(actionRow, "center");
+
+        Map<String, Object> row = Div.horizontal(List.of(left, actionRow));
         Div.matchWidth(row);
         Div.alignV(row, "center");
         Div.margins(row, 0, 0, 16, 0);
         return row;
+    }
+
+    /** A definition-list card: field rows separated by hairline dividers. */
+    private static Map<String, Object> fieldCard(List<Map<String, Object>> rows, Palette p) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            if (i > 0) {
+                items.add(Div.separator(p.border()));
+            }
+            items.add(rows.get(i));
+        }
+        Map<String, Object> card = Div.vertical(items);
+        Div.matchWidth(card);
+        Div.background(card, p.surface());
+        Div.pad(card, 4, 16);
+        Div.corner(card, 12);
+        Div.stroke(card, p.border(), 1);
+        return card;
     }
 
     private static Map<String, Object> sectionLabel(String text, Palette p) {

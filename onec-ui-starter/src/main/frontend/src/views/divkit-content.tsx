@@ -5,11 +5,37 @@ import {
   createVariable,
 } from "@divkitframework/divkit/client";
 import { WIDGET_CUSTOM_COMPONENTS } from "@/lib/widget-bridge";
+import { FORM_CUSTOM_COMPONENTS } from "@/lib/form-bridge";
+
+// All div-custom blocks the content can host: dashboard widgets + the entity form.
+const CUSTOM_COMPONENTS = new Map([...WIDGET_CUSTOM_COMPONENTS, ...FORM_CUSTOM_COMPONENTS]);
 
 type DivJson = Parameters<typeof render>[0]["json"];
 type Instance = ReturnType<typeof render>;
 type VarController = ReturnType<typeof createGlobalVariablesController>;
 type Patch = Parameters<Instance["applyPatch"]>[0];
+type Extensions = NonNullable<Parameters<typeof render>[0]["extensions"]>;
+
+// A DivKit extension the list builder attaches to each clickable row (Components
+// .tableItems → "row"). DivKit calls mountView with the rendered element, so we stamp
+// the row's onec:// action url on the DOM. That single hook drives two host features
+// the DivKit JSON can't express: a hover highlight (CSS on [data-onec-row]) and a
+// right-click Open/Edit menu (divkit-view reads data-onec-row off the closest element).
+class RowExtension {
+  private readonly url: string;
+  constructor(params: object) {
+    const url = (params as { url?: unknown }).url;
+    this.url = typeof url === "string" ? url : "";
+  }
+  mountView(node: HTMLElement) {
+    if (this.url) node.dataset.onecRow = this.url;
+  }
+  unmountView(node: HTMLElement) {
+    delete node.dataset.onecRow;
+  }
+}
+
+const CONTENT_EXTENSIONS: Extensions = new Map([["row", RowExtension]]);
 
 // The content endpoint envelope: a DivKit card plus an optional seed for the
 // variables the card binds — numbers (e.g. the list count) or strings (form fields).
@@ -27,10 +53,14 @@ export type Delta = {
 };
 
 export type ContentHandle = {
-  applyDelta: (delta: Delta) => void;
-  // Current values of the form's f_<field> variables, keyed by field name.
-  readForm: () => Record<string, string>;
+  // Applies a live delta in place. Returns false when the row div-patch could not be
+  // cleanly applied (target missing/broken) so the caller can fall back to a full
+  // re-render instead of leaving the surface wiped.
+  applyDelta: (delta: Delta) => boolean;
 };
+
+// An action emitted by a content card (an onec:// url the host routes).
+export type ContentAction = { url?: string };
 
 /**
  * Renders the per-route content card through DivKit's core instance (the React
@@ -85,7 +115,7 @@ export const DivKitContent = forwardRef<ContentHandle, {
   surfaceKey: string;
   card: ContentCard;
   theme: "light" | "dark";
-  onAction: (action: { url?: string }) => void;
+  onAction: (action: ContentAction) => void;
 }>(function DivKitContent({ surfaceKey, card, theme, onAction }, ref) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const instanceRef = useRef<Instance | null>(null);
@@ -103,23 +133,18 @@ export const DivKitContent = forwardRef<ContentHandle, {
           else ctrl.setVariable(createVariable(name, "integer", BigInt(value)));
         }
       }
-      if (delta.changes?.length && instanceRef.current) {
-        instanceRef.current.applyPatch({ patch: { changes: delta.changes } } as Patch);
+      if (delta.changes?.length) {
+        if (!instanceRef.current) return false;
+        // Transactional mode: DivKit rejects the whole patch (returns false) if any
+        // target id is missing or the replacement is shape-broken, rather than
+        // partially applying it and wiping the rows. The caller re-renders on false.
+        const ok = instanceRef.current.applyPatch(
+          { patch: { mode: "transactional", changes: delta.changes } } as Patch);
         // Patched rows are fresh DOM — re-stretch them to fill the table width.
-        if (hostRef.current) stretchTables(hostRef.current);
+        if (ok && hostRef.current) stretchTables(hostRef.current);
+        return ok;
       }
-    },
-    readForm() {
-      const ctrl = varsRef.current;
-      const out: Record<string, string> = {};
-      if (!ctrl) return out;
-      for (const v of ctrl.list()) {
-        const name = v.getName();
-        if (name.startsWith("f_")) {
-          out[name.slice(2)] = String((v as { getValue(): unknown }).getValue() ?? "");
-        }
-      }
-      return out;
+      return true;
     },
   }), []);
 
@@ -147,9 +172,10 @@ export const DivKitContent = forwardRef<ContentHandle, {
       // desktop prev/next arrow buttons overlaid on the table.
       platform: "touch",
       globalVariablesController: ctrl,
-      // Bridge div-custom blocks (charts, calendars, kanban) to their React widgets.
-      customComponents: WIDGET_CUSTOM_COMPONENTS,
-      onCustomAction: (action) => actionRef.current(action as { url?: string }),
+      // Bridge div-custom blocks (charts, calendars, kanban, entity form) to React.
+      customComponents: CUSTOM_COMPONENTS,
+      extensions: CONTENT_EXTENSIONS,
+      onCustomAction: (action) => actionRef.current(action as ContentAction),
     });
     instanceRef.current = inst;
     // Re-stretch tables whenever the host lays out or the island is resized. Setting

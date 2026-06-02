@@ -1,5 +1,6 @@
 package com.example.domain.catalogs;
 
+import com.onec.annotations.AccessControl;
 import com.onec.annotations.Attribute;
 import com.onec.annotations.Catalog;
 import com.onec.model.CatalogObject;
@@ -11,6 +12,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Catalog(name = "Employees", codeLength = 6, codePrefix = "E-", context = "Rentals")
+// Cleaners see the team roster (read-only); only rentals managers edit it.
+@AccessControl(readRoles = {"RENTALS", "CLEANER"}, writeRoles = {"RENTALS"})
 @Getter
 @Setter
 public class Employee extends CatalogObject {

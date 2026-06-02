@@ -5,6 +5,7 @@ import com.onec.metadata.DashboardWidgetDescriptor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.ToLongFunction;
 
 /**
  * Builds the home/dashboard content div: a greeting header and the widget area.
@@ -17,7 +18,8 @@ public final class DashboardDivBuilder {
     private DashboardDivBuilder() {}
 
     public static Map<String, Object> build(String title, String greeting,
-                                            List<DashboardWidgetDescriptor> widgets, int columns, Palette p) {
+                                            List<DashboardWidgetDescriptor> widgets, int columns,
+                                            ToLongFunction<DashboardWidgetDescriptor> counts, Palette p) {
         List<Map<String, Object>> items = new ArrayList<>();
         items.add(Components.pageHeader(title, greeting, p));
 
@@ -25,7 +27,7 @@ public final class DashboardDivBuilder {
             items.add(Components.card(List.of(
                     Div.color(Div.text("Nothing here yet", 14, "regular"), p.muted())), p));
         } else {
-            items.add(Widgets.grid(widgets, columns, p));
+            items.add(Widgets.grid(widgets, columns, counts, p));
         }
         return content(items);
     }
@@ -33,6 +35,7 @@ public final class DashboardDivBuilder {
     private static Map<String, Object> content(List<Map<String, Object>> items) {
         Map<String, Object> root = Div.vertical(items);
         Div.id(root, "onec-content");
+        Div.contentPadding(root);
         Div.matchWidth(root);
         Div.gap(root, 8);
         return root;

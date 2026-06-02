@@ -1,5 +1,6 @@
 package com.example.domain.catalogs;
 
+import com.onec.annotations.AccessControl;
 import com.onec.annotations.Attribute;
 import com.onec.annotations.Catalog;
 import com.onec.model.CatalogObject;
@@ -10,6 +11,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 @Catalog(name = "Properties", codeLength = 12, codePrefix = "P-", context = "Rentals")
+@AccessControl(readRoles = {"RENTALS", "FINANCE"}, writeRoles = {"RENTALS"})
 @Getter
 @Setter
 public class Property extends CatalogObject {

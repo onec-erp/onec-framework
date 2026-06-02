@@ -1,5 +1,6 @@
 package com.example.domain.catalogs;
 
+import com.onec.annotations.AccessControl;
 import com.onec.annotations.Attribute;
 import com.onec.annotations.Catalog;
 import com.onec.model.CatalogObject;
@@ -8,6 +9,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Catalog(name = "Bank Accounts", codeLength = 12, codePrefix = "BA-", context = "Rentals")
+@AccessControl(readRoles = {"FINANCE"}, writeRoles = {"FINANCE"})
 @Getter
 @Setter
 public class BankAccount extends CatalogObject {

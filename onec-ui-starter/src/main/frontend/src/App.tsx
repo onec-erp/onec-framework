@@ -7,6 +7,7 @@ import { LoginView } from "@/views/login";
 import { PortfolioPage } from "@/views/portfolio";
 import { DivKitView } from "@/views/divkit-view";
 import { WidgetPortals } from "@/lib/widget-bridge";
+import { FormPortals } from "@/lib/form-bridge";
 
 function ProtectedApp() {
   const { user, loading } = useAuth();
@@ -31,6 +32,7 @@ function ProtectedApp() {
     <>
       <DivKitView />
       <WidgetPortals />
+      <FormPortals />
     </>
   );
 }

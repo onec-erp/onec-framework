@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { DivKit, type DivKitProps } from "@divkitframework/react";
-import { X } from "lucide-react";
+import { ExternalLink, Pencil, X } from "lucide-react";
 import {
   createGlobalVariablesController,
   createVariable,
@@ -13,6 +13,7 @@ import { useUiEvents } from "@/hooks/use-ui-events";
 import type { UiEvent } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ContentPane, type LiveRegistry } from "@/views/content-pane";
+import type { ContentAction } from "@/views/divkit-content";
 import "@divkitframework/divkit/dist/client.css";
 
 /**
@@ -66,6 +67,16 @@ type Pane = { id: string; tabs: WorkspaceTab[]; activePath: string };
 // has focus (the island the URL/navigation drives).
 type Workspace = { panes: Pane[]; sizes: number[]; focused: string };
 
+// A pending confirmation shown in the in-app modal (replaces window.confirm), e.g.
+// delete confirmations. onConfirm runs the action; the modal closes either way.
+type ConfirmState = {
+  title: string;
+  message?: string;
+  confirmLabel: string;
+  danger?: boolean;
+  onConfirm: () => void;
+};
+
 const shellCache = new Map<string, ShellData>();
 
 let paneSeq = 0;
@@ -93,6 +104,14 @@ function tabForPath(pathname: string): WorkspaceTab {
   if (action === "edit") return { path, title: `Edit ${entity}` };
   if (detail) return { path, title: `${entity} ${detail.slice(0, 8)}` };
   return { path, title: entity };
+}
+
+// A record surface opened from a list — a document/catalog detail or a "new" form
+// (3 segments). These open in their own island beside the list, master-detail style;
+// 2-segment lists and 4-segment edit forms stay in the focused island.
+function isRecordDetail(pathname: string): boolean {
+  const seg = pathname.split("/").filter(Boolean);
+  return seg.length === 3 && (seg[0] === "documents" || seg[0] === "catalogs");
 }
 
 function initialWorkspace(): Workspace {
@@ -187,6 +206,10 @@ export function DivKitView() {
   const [workspace, setWorkspace] = useState<Workspace>(initialWorkspace);
   const wsRef = useRef(workspace);
   wsRef.current = workspace;
+  // Right-click menu for a list row: screen position + the row's onec:// open url.
+  const [rowMenu, setRowMenu] = useState<{ x: number; y: number; url: string } | null>(null);
+  // The in-app confirmation modal (delete, etc.); null when closed.
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
 
   const resolvedTheme = useMemo<"light" | "dark">(() => {
     if (theme === "dark" || theme === "light") return theme;
@@ -304,8 +327,71 @@ export function DivKitView() {
     [location.pathname, navigate]
   );
 
+  // Open a record beside the focused island, master-detail style — but cap auto-opened
+  // columns at two so nested opens (a form, then "+ New" from a dropdown, then its edit…)
+  // tab into the existing detail column instead of cramming the screen with ever more
+  // panes. If it's already open anywhere, focus it; if a second column already exists,
+  // pile the record on there as a tab; otherwise spawn the detail column to the right.
+  const MAX_AUTO_COLUMNS = 2;
+  const openDetailRight = useCallback(
+    (path: string) => {
+      setWorkspace((ws) => {
+        const holder = ws.panes.find((p) => p.tabs.some((t) => t.path === path));
+        if (holder) {
+          return {
+            ...ws,
+            focused: holder.id,
+            panes: ws.panes.map((p) => (p.id === holder.id ? { ...p, activePath: path } : p)),
+          };
+        }
+        const idx = Math.max(0, ws.panes.findIndex((p) => p.id === ws.focused));
+        // Already at the column cap → tab into the rightmost pane (the detail column)
+        // rather than splitting a new one.
+        if (ws.panes.length >= MAX_AUTO_COLUMNS) {
+          const target = ws.panes[ws.panes.length - 1];
+          return {
+            ...ws,
+            focused: target.id,
+            panes: ws.panes.map((p) =>
+              p.id === target.id
+                ? { ...p, tabs: [...p.tabs, tabForPath(path)], activePath: path }
+                : p
+            ),
+          };
+        }
+        const id = newPaneId();
+        const panes = [
+          ...ws.panes.slice(0, idx + 1),
+          { id, tabs: [tabForPath(path)], activePath: path },
+          ...ws.panes.slice(idx + 1),
+        ];
+        const sizes = [...ws.sizes];
+        const share = sizes[idx] / 2;
+        sizes[idx] = share;
+        sizes.splice(idx + 1, 0, share);
+        return { panes, sizes: normalize(sizes), focused: id };
+      });
+      if (path !== location.pathname) navigate(path);
+    },
+    [location.pathname, navigate]
+  );
+
+  // Close a tab by its path wherever it lives (e.g. an edit form after saving). Repoints
+  // focus to what remains in that island and follows it with the URL.
+  const closePath = useCallback(
+    (path: string) => {
+      const ws = wsRef.current;
+      if (!ws.panes.some((p) => p.tabs.some((t) => t.path === path))) return;
+      const next = detachTab(ws, path);
+      setWorkspace(next);
+      const focused = next.panes.find((p) => p.id === next.focused) ?? next.panes[0];
+      if (focused?.activePath && focused.activePath !== location.pathname) navigate(focused.activePath);
+    },
+    [location.pathname, navigate]
+  );
+
   const onCustomAction = useCallback(
-    (action: { url?: string }) => {
+    (action: ContentAction) => {
       const url = action?.url;
       if (!url || !url.startsWith("onec://")) return;
       const rest = url.slice("onec://".length); // "logout" | "theme/toggle" | "app?profile=x" | "documents/foo/id"
@@ -327,18 +413,104 @@ export function DivKitView() {
         return;
       }
       if (rest.startsWith("delete/")) {
-        // delete/documents/{name}/{id} — confirm, DELETE via REST, then back to the
-        // list (the SSE "deleted" event patches any other open list live).
+        // delete/{kind}/{name}/{id} — confirm in the in-app modal, DELETE via REST, then
+        // back to the list (the SSE "deleted" event patches any other open list live).
         const [kind, name, id] = rest.slice("delete/".length).split("/");
-        if (kind === "documents" && name && id && window.confirm("Delete this document?")) {
-          api.deleteDocument(name, id).then(() => navigate("/documents/" + name)).catch(() => {});
+        if (!name || !id) return;
+        // After deleting, close the record's pane (and any open edit pane) and let the
+        // list refresh over SSE — don't navigate the list into the detail column.
+        const after = () => {
+          closePath("/" + kind + "/" + name + "/" + id + "/edit");
+          closePath("/" + kind + "/" + name + "/" + id);
+        };
+        if (kind === "documents") {
+          setConfirm({
+            title: "Delete document?",
+            message: "This document will be marked for deletion. You can't undo this from here.",
+            confirmLabel: "Delete",
+            danger: true,
+            onConfirm: () => api.deleteDocument(name, id).then(after).catch(() => {}),
+          });
+        } else if (kind === "catalogs") {
+          setConfirm({
+            title: "Delete item?",
+            message: "This item will be marked for deletion. You can't undo this from here.",
+            confirmLabel: "Delete",
+            danger: true,
+            onConfirm: () => api.deleteCatalogItem(name, id).then(after).catch(() => {}),
+          });
         }
         return;
       }
-      openPath("/" + rest);
+      const path = "/" + rest;
+      // On the desktop islands layout, a record opens in its own island to the right;
+      // elsewhere (single content pane) it just navigates.
+      if (shell?.navStyle === "sidebar" && isRecordDetail(path)) {
+        openDetailRight(path);
+      } else {
+        openPath(path);
+      }
     },
-    [navigate, location.pathname, logout, setTheme, resolvedTheme, openPath]
+    [navigate, location.pathname, logout, setTheme, resolvedTheme, openPath, openDetailRight, closePath, shell?.navStyle]
   );
+
+  // Right-click on a list row (stamped with data-onec-row by the DivKit "row" extension)
+  // opens a small Open / Edit menu. One window-level listener serves every island; any
+  // left-click / Esc / resize dismisses it.
+  useEffect(() => {
+    const onCtx = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement)?.closest?.("[data-onec-row]") as HTMLElement | null;
+      const url = el?.dataset.onecRow;
+      if (!url) return;
+      e.preventDefault();
+      setRowMenu({ x: e.clientX, y: e.clientY, url });
+    };
+    const close = () => setRowMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("contextmenu", onCtx);
+    window.addEventListener("click", close);
+    window.addEventListener("resize", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("contextmenu", onCtx);
+      window.removeEventListener("click", close);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  // The React form widgets (onec-form) and ref picker live outside DivKit's action flow,
+  // so they reach the host through window events: "onec:action" routes an onec:// url
+  // through the same handler as a DivKit action (open record, open catalog new-form),
+  // and "onec:closepath" closes a form pane after save/cancel.
+  useEffect(() => {
+    const onAction = (e: Event) => {
+      const url = (e as CustomEvent).detail;
+      if (typeof url === "string") onCustomAction({ url });
+    };
+    const onClose = (e: Event) => {
+      const path = (e as CustomEvent).detail;
+      if (typeof path === "string") closePath(path);
+    };
+    window.addEventListener("onec:action", onAction);
+    window.addEventListener("onec:closepath", onClose);
+    return () => {
+      window.removeEventListener("onec:action", onAction);
+      window.removeEventListener("onec:closepath", onClose);
+    };
+  }, [onCustomAction, closePath]);
+
+  // Esc dismisses the confirmation modal.
+  useEffect(() => {
+    if (!confirm) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirm(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirm]);
 
   // ----- island / tab operations -----
 
@@ -382,7 +554,7 @@ export function DivKitView() {
   // ----- drag a tab between / out of islands -----
 
   const dragRef = useRef<{ path: string; fromPaneId: string } | null>(null);
-  const [dropTarget, setDropTarget] = useState<{ paneId: string; mode: "into" | "right" } | null>(
+  const [dropTarget, setDropTarget] = useState<{ paneId: string; mode: "left" | "into" | "right" } | null>(
     null
   );
   // The strip + slot a reorder/move would drop into, driving the live preview gap.
@@ -439,6 +611,40 @@ export function DivKitView() {
       const share = sizes[idx] / 2;
       sizes[idx] = share;
       sizes.splice(idx + 1, 0, share);
+      setWorkspace({ panes, sizes: normalize(sizes), focused: id });
+      if (path !== location.pathname) navigate(path);
+    },
+    [activateTab, moveTabInto, location.pathname, navigate]
+  );
+
+  // Split: drop the dragged tab to the left of an island as a brand-new island inserted
+  // before it (dropping on the leftmost island's left edge pins the tab to the far left).
+  const splitLeft = useCallback(
+    (beforePaneId: string, path: string) => {
+      const ws = wsRef.current;
+      const source = ws.panes.find((p) => p.tabs.some((t) => t.path === path));
+      if (source && source.id === beforePaneId && source.tabs.length === 1) {
+        activateTab(beforePaneId, path);
+        return;
+      }
+      const detached = detachTab(ws, path);
+      const idx = detached.panes.findIndex((p) => p.id === beforePaneId);
+      if (idx < 0) {
+        moveTabInto(detached.panes[0].id, path);
+        return;
+      }
+      const id = newPaneId();
+      const tab = tabForPath(path);
+      const panes = [
+        ...detached.panes.slice(0, idx),
+        { id, tabs: [tab], activePath: path },
+        ...detached.panes.slice(idx),
+      ];
+      // Split the target's weight with the new island inserted before it.
+      const sizes = [...detached.sizes];
+      const share = sizes[idx] / 2;
+      sizes[idx] = share;
+      sizes.splice(idx, 0, share);
       setWorkspace({ panes, sizes: normalize(sizes), focused: id });
       if (path !== location.pathname) navigate(path);
     },
@@ -514,21 +720,27 @@ export function DivKitView() {
     return idx;
   };
 
-  // Which half of an island the cursor is over: the right third is "split", the rest
-  // is "move into". Computed from geometry on the spot so it never lags drop state.
-  const dropModeAt = (clientX: number, rect: DOMRect): "into" | "right" =>
-    clientX > rect.right - Math.min(120, rect.width * 0.33) ? "right" : "into";
+  // Where over an island the cursor is: the left edge splits a new island before it, the
+  // right edge splits one after it, the middle moves the tab into it. Computed from
+  // geometry on the spot so it never lags drop state.
+  const dropModeAt = (clientX: number, rect: DOMRect): "left" | "into" | "right" => {
+    const edge = Math.min(120, rect.width * 0.33);
+    if (clientX < rect.left + edge) return "left";
+    if (clientX > rect.right - edge) return "right";
+    return "into";
+  };
 
   const onDrop = useCallback(
-    (paneId: string, mode: "into" | "right") => {
+    (paneId: string, mode: "left" | "into" | "right") => {
       const drag = dragRef.current;
       dragRef.current = null;
       setDropTarget(null);
       if (!drag) return;
       if (mode === "right") splitRight(paneId, drag.path);
+      else if (mode === "left") splitLeft(paneId, drag.path);
       else moveTabInto(paneId, drag.path);
     },
-    [moveTabInto, splitRight]
+    [moveTabInto, splitRight, splitLeft]
   );
 
   // Esc closes the focused island's active tab (unless you're typing in a field).
@@ -554,49 +766,36 @@ export function DivKitView() {
   // FLIP: when the tab order shifts (live drag preview, or a committed reorder), slide
   // each tab from its old x to its new one instead of snapping. We record every tab's
   // position after each render and animate the delta on the next.
-  const flipRects = useRef(new Map<string, DOMRect>());
-  const flipRaf = useRef<number | null>(null);
+  const flipRects = useRef(new Map<string, number>());
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    // A newer render supersedes the previous render's pending "play" frame; if we
-    // let that stale frame run it clears the transform we're about to set → snap.
-    if (flipRaf.current != null) cancelAnimationFrame(flipRaf.current);
-
-    const els = Array.from(container.querySelectorAll<HTMLElement>("[data-flip]"));
-    // Neutralize any in-flight transform *before* measuring. getBoundingClientRect
-    // reports the visual box, so a tab caught mid-slide would otherwise record its
-    // interpolated position as the baseline and the next delta would be wrong —
-    // that's the intermittent snap.
-    for (const el of els) {
-      el.style.transition = "none";
-      el.style.transform = "";
-    }
-
     const prev = flipRects.current;
-    const next = new Map<string, DOMRect>();
-    for (const el of els) {
+    const next = new Map<string, number>();
+    for (const el of container.querySelectorAll<HTMLElement>("[data-flip]")) {
       const key = el.dataset.flip!;
-      const rect = el.getBoundingClientRect(); // forces a flush of the resets above
-      next.set(key, rect);
+      // offsetLeft, not getBoundingClientRect: the layout position, immune to the
+      // tab's own in-flight transform and to the strip's scroll. Measuring the
+      // visual box instead would record a mid-slide tab's interpolated position as
+      // the baseline, so the next delta — and the animation back — would be wrong.
+      const left = el.offsetLeft;
+      next.set(key, left);
       // Don't fight the pointer: leave the tab being dragged alone.
       if (dragState && key.endsWith(":" + dragState.path)) continue;
       const old = prev.get(key);
-      const dx = old ? old.left - rect.left : 0;
-      if (Math.abs(dx) > 0.5) el.style.transform = `translateX(${dx}px)`;
+      const dx = old != null ? old - left : 0;
+      if (Math.abs(dx) > 0.5) {
+        el.style.transition = "none";
+        el.style.transform = `translateX(${dx}px)`;
+        // Play: next frame, release to the real position with a transition. A stale
+        // frame from an earlier render is harmless — every play does the same thing.
+        requestAnimationFrame(() => {
+          el.style.transition = "transform 160ms ease";
+          el.style.transform = "";
+        });
+      }
     }
     flipRects.current = next;
-
-    // Play: on the next frame, animate every inverted tab back to its real spot.
-    flipRaf.current = requestAnimationFrame(() => {
-      flipRaf.current = null;
-      for (const el of els) {
-        const key = el.dataset.flip!;
-        if (dragState && key.endsWith(":" + dragState.path)) continue;
-        el.style.transition = "transform 160ms ease";
-        el.style.transform = "";
-      }
-    });
   });
 
   const startResize = useCallback((index: number, e: React.PointerEvent) => {
@@ -670,12 +869,90 @@ export function DivKitView() {
     />
   );
 
+  // The row right-click menu, rendered once per layout. Clamped to stay on-screen.
+  const rowMenuEl = rowMenu ? (
+    <div
+      className="fixed z-50 min-w-44 overflow-hidden rounded-xl border py-1 shadow-lg"
+      style={{
+        left: Math.min(rowMenu.x, window.innerWidth - 184),
+        top: Math.min(rowMenu.y, window.innerHeight - 96),
+        background: surfaceBg,
+        borderColor,
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {[
+        { label: "Open", icon: ExternalLink, url: rowMenu.url },
+        { label: "Edit", icon: Pencil, url: rowMenu.url + "/edit" },
+      ].map(({ label, icon: Icon, url }) => (
+        <button
+          key={label}
+          type="button"
+          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-muted"
+          onClick={() => {
+            onCustomAction({ url });
+            setRowMenu(null);
+          }}
+        >
+          <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
+          {label}
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+  // The in-app confirmation modal (replaces window.confirm): a backdrop over a centered
+  // card with Cancel / confirm actions. Backdrop click or Esc cancels.
+  const confirmEl = confirm ? (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]" onClick={() => setConfirm(null)} />
+      <div
+        className="relative z-10 w-full max-w-sm rounded-2xl border p-5 shadow-2xl"
+        style={{ background: surfaceBg, borderColor }}
+      >
+        <h2 className="text-base font-semibold text-foreground">{confirm.title}</h2>
+        {confirm.message ? (
+          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{confirm.message}</p>
+        ) : null}
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            className="rounded-lg border px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            style={{ borderColor }}
+            onClick={() => setConfirm(null)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            autoFocus
+            className={cn(
+              "rounded-lg px-3.5 py-2 text-sm font-medium text-white transition-colors",
+              confirm.danger ? "bg-red-600 hover:bg-red-700" : "bg-primary hover:opacity-90"
+            )}
+            onClick={() => {
+              confirm.onConfirm();
+              setConfirm(null);
+            }}
+          >
+            {confirm.confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   // One island: a tab strip in its header (drop target + drag handles) over its
   // active surface. The whole island is a drop target ("into"); a strip down its
   // right edge is the "split" target that opens a new island.
   const island = (pane: Pane) => {
     const isDropInto = dropTarget?.paneId === pane.id && dropTarget.mode === "into";
     const isDropRight = dropTarget?.paneId === pane.id && dropTarget.mode === "right";
+    const isDropLeft = dropTarget?.paneId === pane.id && dropTarget.mode === "left";
     const focused = pane.id === workspace.focused;
 
     // While a tab is dragged over this strip, lay the tabs out in their would-be
@@ -783,7 +1060,9 @@ export function DivKitView() {
                   active
                     ? "text-foreground"
                     : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-                  slot.dragged && "opacity-40"
+                  // Hide the source tab while it's dragged, but keep its slot so the
+                  // empty space reads as the live "drop here" gap that follows the cursor.
+                  slot.dragged && "opacity-0"
                 )}
                 style={{ background: fill }}
               >
@@ -810,22 +1089,35 @@ export function DivKitView() {
           })}
         </div>
 
-        {/* active surface — or a blank island once every tab is closed */}
+        {/* Every open tab stays mounted in its own scroll container; only the active
+            one is shown. Keeping them alive preserves each tab's scroll position,
+            DivKit state, and form inputs across switches (no remount, no refetch). */}
         {pane.tabs.length === 0 ? (
           <div className="grid min-h-0 flex-1 place-items-center">
             <p className="text-sm text-muted-foreground">No open tabs</p>
           </div>
         ) : (
-          <div className="min-h-0 flex-1 overflow-auto">
-            <ContentPane
-              path={pane.activePath}
-              viewport={viewport}
-              theme={resolvedTheme}
-              profile={profile}
-              onAction={onCustomAction}
-              registry={liveRegistry.current}
-              skeletonBg={skeletonBg}
-            />
+          <div className="relative min-h-0 flex-1">
+            {pane.tabs.map((tab) => (
+              <div
+                key={tab.path}
+                // Inactive tabs stay laid out (visibility, not display:none) so widgets
+                // that measure on mount — e.g. @hello-pangea/dnd boards — keep working,
+                // and each tab holds its own scroll position.
+                className="absolute inset-0 overflow-auto"
+                style={{ visibility: tab.path === pane.activePath ? "visible" : "hidden" }}
+              >
+                <ContentPane
+                  path={tab.path}
+                  viewport={viewport}
+                  theme={resolvedTheme}
+                  profile={profile}
+                  onAction={onCustomAction}
+                  registry={liveRegistry.current}
+                  skeletonBg={skeletonBg}
+                />
+              </div>
+            ))}
           </div>
         )}
 
@@ -839,6 +1131,12 @@ export function DivKitView() {
         {isDropRight ? (
           <div
             className="pointer-events-none absolute inset-y-0 right-0 w-1/3 rounded-r-2xl"
+            style={{ background: `${accent}1f`, boxShadow: `inset 0 0 0 2px ${accent}80` }}
+          />
+        ) : null}
+        {isDropLeft ? (
+          <div
+            className="pointer-events-none absolute inset-y-0 left-0 w-1/3 rounded-l-2xl"
             style={{ background: `${accent}1f`, boxShadow: `inset 0 0 0 2px ${accent}80` }}
           />
         ) : null}
@@ -879,6 +1177,8 @@ export function DivKitView() {
             </div>
           ))}
         </div>
+        {rowMenuEl}
+        {confirmEl}
       </div>
     );
   }
@@ -889,17 +1189,21 @@ export function DivKitView() {
     return (
       <div className="min-h-screen w-full overflow-x-hidden" style={{ background: pageBg }}>
         <div className="pb-24">{plainContent}</div>
-        <nav className="fixed inset-x-0 bottom-0 z-10 p-3">
+        <nav className="fixed inset-x-0 bottom-0 z-10">
           <div className={viewport === "tablet" ? "ml-auto w-fit" : "mx-auto max-w-md"}>{navEl}</div>
         </nav>
+        {rowMenuEl}
+        {confirmEl}
       </div>
     );
   }
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden" style={{ background: pageBg }}>
-      <div className="p-3">{navEl}</div>
+      {navEl}
       {plainContent}
+      {rowMenuEl}
+        {confirmEl}
     </div>
   );
 }

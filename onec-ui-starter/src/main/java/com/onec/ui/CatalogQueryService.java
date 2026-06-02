@@ -50,6 +50,26 @@ public class CatalogQueryService {
         return rows;
     }
 
+    /**
+     * Server-side typeahead for ref pickers: case-insensitive match on code/description,
+     * capped at {@code limit}, so a 2000-row catalog never ships whole to the client.
+     */
+    public List<Map<String, Object>> search(CatalogDescriptor desc, String query, int limit) {
+        String like = "%" + (query == null ? "" : query.toLowerCase()) + "%";
+        List<Map<String, Object>> rows = jdbi.withHandle(h ->
+                h.createQuery("SELECT * FROM " + desc.tableName() +
+                                " WHERE _deletion_mark = false" +
+                                " AND (LOWER(_description) LIKE :q OR LOWER(_code) LIKE :q)" +
+                                " ORDER BY _description LIMIT :limit")
+                        .bind("q", like)
+                        .bind("limit", limit)
+                        .mapToMap()
+                        .list()
+        );
+        refResolver.resolveAttributes(rows, desc.attributes());
+        return rows;
+    }
+
     public long count(CatalogDescriptor desc) {
         return jdbi.withHandle(h ->
                 h.createQuery("SELECT COUNT(*) FROM " + desc.tableName() + " WHERE _deletion_mark = false")

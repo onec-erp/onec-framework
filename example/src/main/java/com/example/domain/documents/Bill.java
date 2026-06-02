@@ -30,7 +30,7 @@ import java.util.UUID;
  * Net + IVA = Gross. IVA percent defaults from the {@code DefaultIvaPercent} constant.
  */
 @Document(name = "Bills", numberPrefix = "BILL-", numberLength = 14, context = "Rentals")
-@AccessControl(readRoles = {"ADMIN", "RENTALS", "FINANCE"}, writeRoles = {"ADMIN", "FINANCE"})
+@AccessControl(readRoles = {"RENTALS", "FINANCE"}, writeRoles = {"FINANCE"})
 @PrintTemplate(name = "bill", label = "Print Bill", format = PrintFormat.PDF)
 @Getter
 @Setter

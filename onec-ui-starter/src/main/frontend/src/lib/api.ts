@@ -125,6 +125,11 @@ export const api = {
   // Catalog CRUD
   listCatalog: (name: string) =>
     fetchJson<EntityRecord[]>(`${BASE}/catalogs/${name}`),
+  // Server-side typeahead for ref pickers: capped, case-insensitive code/description match.
+  searchCatalog: (name: string, q: string, limit = 30) => {
+    const params = new URLSearchParams({ q, limit: String(limit) });
+    return fetchJson<EntityRecord[]>(`${BASE}/catalogs/${name}?${params.toString()}`);
+  },
   getCatalogItem: (name: string, id: string) =>
     fetchJson<EntityRecord>(`${BASE}/catalogs/${name}/${id}`),
   createCatalogItem: (name: string, data: EntityRecord) =>

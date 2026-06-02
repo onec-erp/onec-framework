@@ -6,7 +6,8 @@ import {
   CalendarGridBody,
   CalendarGridHeader,
   CalendarHeaderCell,
-  Heading,
+  CalendarStateContext,
+  RangeCalendarStateContext,
   RangeCalendar as AriaRangeCalendar,
   Button as AriaButton,
 } from "react-aria-components";
@@ -20,6 +21,14 @@ import { cn } from "@/lib/utils";
 
 const navBtnCls =
   "inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed";
+
+const selectCls =
+  "h-7 cursor-pointer rounded-md border border-input bg-muted px-1.5 text-sm font-medium text-foreground outline-none transition-colors hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring";
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
 
 const baseCellCls = cn(
   "relative inline-flex h-8 w-8 cursor-pointer items-center justify-center text-sm rounded-md outline-none",
@@ -52,13 +61,60 @@ interface CalendarHeaderProps {
   className?: string;
 }
 
+// A calendar header with month + year dropdowns (plus prev/next arrows) so you can
+// jump straight to any month/year instead of clicking through one month at a time.
+// Reads the live calendar state via context (works for both single and range calendars)
+// and moves the focused date on change.
 function CalendarTopBar({ className }: CalendarHeaderProps) {
+  const single = React.useContext(CalendarStateContext);
+  const range = React.useContext(RangeCalendarStateContext);
+  const state = single ?? range;
+  const focused = state?.focusedDate;
+
+  const years = React.useMemo(() => {
+    const current = new Date().getFullYear();
+    const min = Math.min(focused?.year ?? current, current - 120);
+    const max = Math.max(focused?.year ?? current, current + 15);
+    const out: number[] = [];
+    for (let y = max; y >= min; y--) out.push(y);
+    return out;
+  }, [focused?.year]);
+
+  const go = (fields: { month?: number; year?: number }) => {
+    if (state && focused) state.setFocusedDate(focused.set({ day: 1, ...fields }));
+  };
+
   return (
-    <header className={cn("mb-2 flex items-center justify-between gap-2", className)}>
+    <header className={cn("mb-2 flex items-center gap-1.5", className)}>
       <AriaButton slot="previous" className={navBtnCls} aria-label="Previous">
         <ChevronLeft className="h-4 w-4" />
       </AriaButton>
-      <Heading className="flex-1 text-center text-sm font-medium" />
+      <div className="flex flex-1 items-center justify-center gap-1.5">
+        <select
+          aria-label="Month"
+          className={selectCls}
+          value={focused?.month ?? 1}
+          onChange={(e) => go({ month: Number(e.target.value) })}
+        >
+          {MONTHS.map((m, i) => (
+            <option key={m} value={i + 1}>
+              {m}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Year"
+          className={selectCls}
+          value={focused?.year ?? new Date().getFullYear()}
+          onChange={(e) => go({ year: Number(e.target.value) })}
+        >
+          {years.map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
+      </div>
       <AriaButton slot="next" className={navBtnCls} aria-label="Next">
         <ChevronRight className="h-4 w-4" />
       </AriaButton>

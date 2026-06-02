@@ -4,6 +4,7 @@ import type { DashboardWidgetMeta } from "@/lib/types";
 import { ChartWidget } from "@/components/chart-widget";
 import { CalendarWidget } from "@/components/calendar-widget";
 import { KanbanWidget } from "@/components/kanban-widget";
+import { ListWidget } from "@/components/list-widget";
 
 /**
  * Bridges DivKit's {@code div-custom} blocks to React widgets. The server emits a
@@ -19,6 +20,7 @@ const REGISTRY: Record<string, ComponentType<{ widget: DashboardWidgetMeta }>> =
   chart: ChartWidget,
   calendar: CalendarWidget,
   kanban: KanbanWidget,
+  list: ListWidget,
 };
 
 type Mount = { id: number; el: HTMLElement; widget: DashboardWidgetMeta };

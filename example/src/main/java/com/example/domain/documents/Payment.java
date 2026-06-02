@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Document(name = "Payments", numberPrefix = "PMT-", numberLength = 14, context = "Rentals")
-@AccessControl(readRoles = {"ADMIN", "RENTALS", "FINANCE"}, writeRoles = {"ADMIN", "FINANCE"})
+@AccessControl(readRoles = {"RENTALS", "FINANCE"}, writeRoles = {"FINANCE"})
 @Getter
 @Setter
 public class Payment extends DocumentObject implements Postable, Validated {

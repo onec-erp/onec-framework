@@ -6,6 +6,7 @@ import com.onec.ui.PageComponent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.ToLongFunction;
 
 /**
  * Renders an authored {@link com.onec.ui.Page} to DivKit content: a header, the
@@ -19,12 +20,13 @@ public final class PageDivBuilder {
 
     public static Map<String, Object> build(String title, String subtitle,
                                             List<DashboardWidgetDescriptor> widgets,
-                                            List<PageComponent> components, int columns, Palette p) {
+                                            List<PageComponent> components, int columns,
+                                            ToLongFunction<DashboardWidgetDescriptor> counts, Palette p) {
         List<Map<String, Object>> items = new ArrayList<>();
         items.add(Components.pageHeader(title, subtitle, p));
 
         if (!widgets.isEmpty()) {
-            items.add(Widgets.grid(widgets, columns, p));
+            items.add(Widgets.grid(widgets, columns, counts, p));
         }
 
         for (PageComponent c : components) {
@@ -33,6 +35,7 @@ public final class PageDivBuilder {
 
         Map<String, Object> root = Div.vertical(items);
         Div.id(root, "onec-content");
+        Div.contentPadding(root);
         Div.matchWidth(root);
         Div.gap(root, 8);
         return root;

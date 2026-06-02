@@ -13,6 +13,8 @@ const NAMES = [
   "file-text", "sparkles", "calendar", "wallet", "banknote", "receipt",
   "building", "building-2", "package", "settings", "layout-dashboard",
   "circle", "map-pin", "bed",
+  // action / control glyphs
+  "pencil", "trash-2", "plus", "external-link", "check", "arrow-left",
 ];
 
 const here = dirname(fileURLToPath(import.meta.url));

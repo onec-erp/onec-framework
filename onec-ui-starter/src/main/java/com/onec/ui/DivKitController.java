@@ -6,6 +6,7 @@ import com.onec.metadata.DashboardWidgetDescriptor;
 import com.onec.metadata.DocumentDescriptor;
 import com.onec.model.AccumulationType;
 import com.onec.ui.divkit.DashboardDivBuilder;
+import com.onec.ui.divkit.Div;
 import com.onec.ui.divkit.DivCard;
 import com.onec.ui.divkit.PageDivBuilder;
 import com.onec.ui.divkit.Palette;
@@ -101,13 +102,8 @@ public class DivKitController {
         List<ShellLayoutBuilder.ProfileLink> profileLinks = profileLinksFor(principal);
         String brand = activeProfile.title() == null ? "" : activeProfile.title();
 
-        // On a bottom tab bar there's no room for chrome around the account, so add
-        // a tab that opens the /account page instead.
-        if (navStyle == NavStyle.BOTTOM_BAR) {
-            nav = new ArrayList<>(nav);
-            nav.add(new ShellLayoutBuilder.NavSection(null, null, List.of(
-                    new ShellLayoutBuilder.NavItem("Account", "onec://account", "user", "/account"))));
-        }
+        // On a bottom tab bar the account (and any overflow destinations) live behind
+        // the bar's "More" tab, which opens the /menu hub — so nothing is appended here.
 
         // Two islands: the nav and the account card. The client places the nav per
         // NavStyle and tucks the account under it (desktop) or omits it (mobile,
@@ -131,6 +127,35 @@ public class DivKitController {
         List<ShellLayoutBuilder.ProfileLink> profileLinks = profileLinksFor(principal);
         Map<String, Object> content = ShellLayoutBuilder.account(
                 user.displayName(), profileLinks, profileId, p);
+        // As a standalone page (mobile), the account card carries its own padding +
+        // border, so it just needs an outer margin to not sit flush against the edges —
+        // the breathing room the web shell used to add around content.
+        Div.margins(content, 16, 16, 16, 16);
+        return DivCard.of("onec-content", content);
+    }
+
+    /**
+     * The mobile "More" hub: the full navigation (grouped by section) plus the account
+     * block. Reached from the bottom bar's "More" tab; resolved for the caller's
+     * persona and RBAC exactly like the nav and shell.
+     */
+    @GetMapping("/menu")
+    public Map<String, Object> menu(@RequestParam(required = false) String profile,
+                                    @RequestParam(required = false) String viewport,
+                                    @RequestParam(required = false) String theme,
+                                    Principal principal) {
+        Palette p = Palette.of(theme);
+        Viewport vp = Viewport.parse(viewport);
+        UiLayout vpLayout = layoutSet.forViewport(vp);
+        String profileId = activeProfileId(principal, profile);
+        UiLayout.Profile activeProfile = profileResolver.byId(vpLayout, profileId);
+        CurrentUserResolver.CurrentUser user = currentUserResolver.resolve(principal);
+        List<ShellLayoutBuilder.NavSection> nav = navFor(principal, activeProfile);
+        List<ShellLayoutBuilder.ProfileLink> profileLinks = profileLinksFor(principal);
+        String brand = activeProfile.title() == null ? "" : activeProfile.title();
+        Map<String, Object> content = ShellLayoutBuilder.menu(
+                brand, nav, user.displayName(), profileLinks, activeProfile.id(), p);
+        Div.margins(content, 16, 16, 16, 16);
         return DivCard.of("onec-content", content);
     }
 
@@ -152,6 +177,7 @@ public class DivKitController {
         // An authored Page for "/" takes over the home surface; otherwise fall back
         // to the widget grid resolved from the layout/profile. A viewport-specific
         // page wins so the dashboard can differ per device.
+        java.util.function.ToLongFunction<DashboardWidgetDescriptor> counts = this::widgetCount;
         Page page = pageResolver.resolve("/", active.id(), vp);
         Map<String, Object> content;
         if (page != null) {
@@ -162,12 +188,12 @@ public class DivKitController {
                     .toList();
             String title = pb.title() != null ? pb.title() : defaultTitle;
             String subtitle = pb.subtitle() != null ? pb.subtitle() : greeting;
-            content = PageDivBuilder.build(title, subtitle, widgets, pb.components(), columns, p);
+            content = PageDivBuilder.build(title, subtitle, widgets, pb.components(), columns, counts, p);
         } else {
             List<DashboardWidgetDescriptor> widgets = layoutResolver.resolveWidgets(active).stream()
                     .filter(w -> access.canRead(principal, w.entityType(), w.entityName()))
                     .toList();
-            content = DashboardDivBuilder.build(defaultTitle, greeting, widgets, columns, p);
+            content = DashboardDivBuilder.build(defaultTitle, greeting, widgets, columns, counts, p);
         }
         return DivCard.of("onec-content", content);
     }
@@ -188,9 +214,50 @@ public class DivKitController {
         Map<String, Object> vars = Map.of("onec_count", rows.size());
         if (delta) {
             return DivCard.delta(List.of(
-                    DivCard.change("onec-rows", SurfaceDivBuilder.catalogRows(view, rows, p))), vars);
+                    DivCard.change("onec-rows", SurfaceDivBuilder.catalogRows(view, rows, name, p))), vars);
         }
-        return DivCard.ofVars("onec-content", SurfaceDivBuilder.catalogList(view, rows, p), vars);
+        String newUrl = access.canWrite(principal, desc) ? "onec://catalogs/" + name + "/new" : null;
+        return DivCard.ofVars("onec-content", SurfaceDivBuilder.catalogList(view, rows, name, newUrl, p), vars);
+    }
+
+    @GetMapping("/catalogs/{name}/{id}")
+    public Map<String, Object> catalogDetail(@PathVariable String name, @PathVariable UUID id,
+                                             @RequestParam(required = false) String profile,
+                                             @RequestParam(required = false) String theme,
+                                             Principal principal) {
+        CatalogDescriptor desc = catalogQuery.require(name);
+        access.requireRead(principal, desc);
+        requireView(desc.javaClass(), activeProfile(principal, profile).id());
+        // Only offer edit/delete to users who may write the catalog; the REST
+        // endpoints enforce it regardless.
+        boolean canWrite = access.canWrite(principal, desc);
+        String editUrl = canWrite ? "onec://catalogs/" + name + "/" + id + "/edit" : null;
+        String deleteUrl = canWrite ? "onec://delete/catalogs/" + name + "/" + id : null;
+        Map<String, Object> content = SurfaceDivBuilder.catalogDetail(
+                resolvedMetadata.describeCatalog(desc), catalogQuery.get(desc, id), editUrl, deleteUrl,
+                Palette.of(theme));
+        return DivCard.of("onec-content", content);
+    }
+
+    @GetMapping("/catalogs/{name}/new")
+    public Map<String, Object> catalogNew(@PathVariable String name, Principal principal) {
+        CatalogDescriptor desc = catalogQuery.require(name);
+        access.requireWrite(principal, desc);
+        Map<String, Object> meta = resolvedMetadata.describeCatalog(desc);
+        return entityFormContent("catalogs", name, null, "New " + str(meta.get("name")), "Create", meta, null);
+    }
+
+    @GetMapping("/catalogs/{name}/{id}/edit")
+    public Map<String, Object> catalogEdit(@PathVariable String name, @PathVariable UUID id, Principal principal) {
+        CatalogDescriptor desc = catalogQuery.require(name);
+        access.requireWrite(principal, desc);
+        Map<String, Object> meta = resolvedMetadata.describeCatalog(desc);
+        Map<String, Object> row = catalogQuery.get(desc, id);
+        String label = str(row.get("_description"));
+        if (label.isBlank()) {
+            label = str(row.get("_code"));
+        }
+        return entityFormContent("catalogs", name, id, "Edit " + label, "Save", meta, row);
     }
 
     @GetMapping("/documents/{name}")
@@ -236,29 +303,21 @@ public class DivKitController {
     }
 
     @GetMapping("/documents/{name}/new")
-    public Map<String, Object> documentNew(@PathVariable String name,
-                                           @RequestParam(required = false) String theme,
-                                           Principal principal) {
+    public Map<String, Object> documentNew(@PathVariable String name, Principal principal) {
         DocumentDescriptor desc = documentQuery.require(name);
         access.requireWrite(principal, desc);
         Map<String, Object> meta = resolvedMetadata.describeDocument(desc);
-        Map<String, Object> form = SurfaceDivBuilder.documentForm(meta, refOptions(meta, principal),
-                "onec://submit/documents/" + name, "Create", "New " + str(meta.get("name")), Palette.of(theme));
-        return DivCard.ofVars("onec-content", form, SurfaceDivBuilder.formVars(meta, null));
+        return entityFormContent("documents", name, null, "New " + str(meta.get("name")), "Create", meta, null);
     }
 
     @GetMapping("/documents/{name}/{id}/edit")
-    public Map<String, Object> documentEdit(@PathVariable String name, @PathVariable UUID id,
-                                            @RequestParam(required = false) String theme,
-                                            Principal principal) {
+    public Map<String, Object> documentEdit(@PathVariable String name, @PathVariable UUID id, Principal principal) {
         DocumentDescriptor desc = documentQuery.require(name);
         access.requireWrite(principal, desc);
         Map<String, Object> meta = resolvedMetadata.describeDocument(desc);
         Map<String, Object> row = documentQuery.get(desc, id);
-        Map<String, Object> form = SurfaceDivBuilder.documentForm(meta, refOptions(meta, principal),
-                "onec://submit/documents/" + name + "/" + id, "Save",
-                "Edit " + str(meta.get("name")) + " " + str(row.get("_number")), Palette.of(theme));
-        return DivCard.ofVars("onec-content", form, SurfaceDivBuilder.formVars(meta, row));
+        return entityFormContent("documents", name, id, "Edit " + str(meta.get("name")) + " " + str(row.get("_number")),
+                "Save", meta, row);
     }
 
     @GetMapping("/registers/{name}")
@@ -283,12 +342,16 @@ public class DivKitController {
     private List<ShellLayoutBuilder.NavSection> navFor(Principal principal, UiLayout.Profile active) {
         String profileId = active.id();
         List<ShellLayoutBuilder.NavSection> nav = new ArrayList<>();
+        // The home/dashboard route — always reachable, so it leads the nav.
+        nav.add(new ShellLayoutBuilder.NavSection(null, null, List.of(
+                new ShellLayoutBuilder.NavItem("Dashboard", "onec://", "home", "/"))));
         for (UiLayout.ResolvedSection section : layoutResolver.resolve(active)) {
             List<ShellLayoutBuilder.NavItem> items = section.items().stream()
                     .filter(item -> access.canRead(principal, item.type(), item.name()))
                     .filter(item -> isDeclared(item, profileId))
                     .map(item -> new ShellLayoutBuilder.NavItem(
-                            item.name(), "onec:/" + item.href(), section.icon(), item.href()))
+                            item.name(), "onec:/" + item.href(),
+                            NavIcons.forItem(item.name(), item.type(), section.icon()), item.href()))
                     .toList();
             if (!items.isEmpty()) {
                 nav.add(new ShellLayoutBuilder.NavSection(section.name(), section.icon(), items));
@@ -317,39 +380,41 @@ public class DivKitController {
     }
 
     /**
-     * Candidate options for each visible-in-form reference field — the records the
-     * user can pick. Keyed by field name; each option is {@code {value:_id, text:display}}.
-     * Only catalog-targeted refs the caller can read are included.
+     * Wraps a create/edit form as the portable {@code onec-form} custom component
+     * (see {@link SurfaceDivBuilder#entityForm}). The descriptor is plain JSON — field
+     * metadata + the record's initial values + where to submit — so every client (the
+     * React web client today, a Flutter client later) renders its own native form from
+     * the same contract. {@code row} is null for create.
      */
-    @SuppressWarnings("unchecked")
-    private Map<String, List<Map<String, Object>>> refOptions(Map<String, Object> meta, Principal principal) {
-        Map<String, List<Map<String, Object>>> out = new LinkedHashMap<>();
-        for (Map<String, Object> a : (List<Map<String, Object>>) meta.getOrDefault("attributes", List.of())) {
-            if (!Boolean.TRUE.equals(a.get("isRef")) || !Boolean.TRUE.equals(a.get("visibleInForm"))) {
-                continue;
-            }
-            CatalogDescriptor target;
-            try {
-                target = catalogQuery.require(str(a.get("refTarget")));
-            } catch (ResponseStatusException notACatalog) {
-                continue;
-            }
-            if (!access.canRead(principal, target)) {
-                continue;
-            }
-            List<Map<String, Object>> opts = new ArrayList<>();
-            for (Map<String, Object> r : catalogQuery.list(target)) {
-                String display = str(r.get("_description"));
-                if (display.isBlank()) display = str(r.get("_code"));
-                opts.add(Map.of("value", str(r.get("_id")), "text", display));
-            }
-            out.put(str(a.get("fieldName")), opts);
-        }
-        return out;
+    private Map<String, Object> entityFormContent(String kind, String name, UUID id, String title,
+                                                  String submitLabel, Map<String, Object> meta,
+                                                  Map<String, Object> row) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("kind", kind);
+        descriptor.put("name", name);
+        descriptor.put("id", id == null ? null : id.toString());
+        descriptor.put("title", title);
+        descriptor.put("submitLabel", submitLabel);
+        descriptor.put("meta", meta);
+        descriptor.put("initial", row);
+        return DivCard.of("onec-content", SurfaceDivBuilder.entityForm(descriptor));
     }
 
     private static String str(Object o) {
         return o == null ? "" : o.toString();
+    }
+
+    /** Live record count for a {@code count} widget's entity (0 if not countable). */
+    private long widgetCount(DashboardWidgetDescriptor w) {
+        try {
+            return switch (w.entityType()) {
+                case "catalog" -> catalogQuery.count(catalogQuery.require(w.entityName()));
+                case "document" -> documentQuery.count(documentQuery.require(w.entityName()));
+                default -> 0L;
+            };
+        } catch (RuntimeException notCountable) {
+            return 0L;
+        }
     }
 
     private List<ShellLayoutBuilder.ProfileLink> profileLinksFor(Principal principal) {

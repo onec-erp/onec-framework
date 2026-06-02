@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   DivKitContent,
+  type ContentAction,
   type ContentCard,
   type ContentHandle,
   type Delta,
@@ -40,7 +41,7 @@ export function ContentPane({
   viewport: string;
   theme: "light" | "dark";
   profile: string | null;
-  onAction: (action: { url?: string }) => void;
+  onAction: (action: ContentAction) => void;
   registry: LiveRegistry;
   skeletonBg: string;
 }) {
@@ -67,6 +68,18 @@ export function ContentPane({
   // Apply a server-pushed change in place. List surfaces fetch a targeted delta (rows
   // div-patch + the count variable); other surfaces refetch and patch their whole
   // content body. Either way it's applyDelta on the live instance — no remount.
+  // Refetch the full card and remount it — the same clean render as a page reload.
+  // Used as the fallback when an in-place delta can't be applied, so a surface never
+  // gets stuck wiped until the user manually reloads.
+  const fullReload = useCallback((ep: string) => {
+    fetch(ep, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((json) => {
+        if (endpointRef.current === ep) setContent({ key: ep, json });
+      })
+      .catch(() => {});
+  }, []);
+
   const liveUpdate = useCallback(() => {
     const ep = endpointRef.current;
     const handle = contentRef.current;
@@ -75,7 +88,10 @@ export function ContentPane({
       fetch(`${ep}&delta=1`, { credentials: "include" })
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
         .then((d: Delta) => {
-          if (endpointRef.current === ep) handle.applyDelta(d);
+          if (endpointRef.current !== ep) return;
+          // If the targeted row patch didn't take (missing/broken target), fall back to
+          // a full remount so the list is refreshed instead of wiped.
+          if (!handle.applyDelta(d)) fullReload(ep);
         })
         .catch(() => {});
     } else {
@@ -84,11 +100,12 @@ export function ContentPane({
         .then((resp: { card?: { states?: { div?: { items?: unknown[] } }[] } }) => {
           if (endpointRef.current !== ep) return;
           const items = resp?.card?.states?.[0]?.div?.items;
-          if (items) handle.applyDelta({ changes: [{ id: "onec-content", items }] });
+          if (!items) return;
+          if (!handle.applyDelta({ changes: [{ id: "onec-content", items }] })) fullReload(ep);
         })
         .catch(() => {});
     }
-  }, []);
+  }, [fullReload]);
 
   // Register this pane's surface + refetch so the parent SSE handler can reach it.
   useEffect(() => {
@@ -117,12 +134,17 @@ export function ContentPane({
   }, [endpoint]);
 
   const contentJson = content && content.key === endpoint ? content.json : null;
+  // The outer padding now lives in the DivKit content document (Div.contentPadding), so
+  // the shell owns no content insets — only the skeleton/error placeholders, which DivKit
+  // hasn't rendered yet, carry matching padding so the loading state doesn't sit flush.
   return (
-    <div className="px-4 py-4 sm:px-6 sm:py-5">
+    <>
       {error ? (
-        <div className="text-sm text-destructive">Failed to load: {error}</div>
+        <div className="px-4 py-4 text-sm text-destructive sm:px-6 sm:py-5">
+          Failed to load: {error}
+        </div>
       ) : !contentJson ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 px-4 py-4 sm:px-6 sm:py-5">
           <div className="h-8 w-48 rounded-md" style={{ background: skeletonBg }} />
           <div className="h-64 w-full rounded-xl" style={{ background: skeletonBg }} />
         </div>
@@ -134,6 +156,6 @@ export function ContentPane({
         theme={theme}
         onAction={onAction}
       />
-    </div>
+    </>
   );
 }

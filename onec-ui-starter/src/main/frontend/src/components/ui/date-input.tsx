@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { Calendar, RangeCalendar } from "@/components/ui/calendar";
 
 const inputCls =
-  "flex h-9 w-full items-center gap-1 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors data-[focus-within=true]:border-ring data-[focus-within=true]:ring-1 data-[focus-within=true]:ring-ring data-[disabled=true]:opacity-50";
+  "flex h-9 w-full items-center gap-1 rounded-md border border-input bg-muted px-3 py-1 text-sm shadow-sm transition-colors data-[focus-within=true]:border-ring data-[focus-within=true]:ring-1 data-[focus-within=true]:ring-ring data-[disabled=true]:opacity-50";
 const segmentCls =
   "rounded-sm px-0.5 py-0 tabular-nums caret-transparent outline-none data-[focused=true]:bg-accent data-[focused=true]:text-accent-foreground data-[type=literal]:px-0 data-[placeholder=true]:text-muted-foreground data-[disabled=true]:opacity-50";
 const calendarBtnCls =

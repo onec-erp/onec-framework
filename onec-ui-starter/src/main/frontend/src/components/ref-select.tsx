@@ -1,14 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronsUpDown, Plus, Search } from "lucide-react";
 import { api } from "@/lib/api";
-import { toSnakeCase } from "@/lib/utils";
+import { cn, toSnakeCase } from "@/lib/utils";
 import type { EntityRecord } from "@/lib/types";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 interface RefSelectProps {
@@ -30,40 +25,139 @@ function displayOf(item: EntityRecord): string {
   return (item._code as string) ?? (item._id as string) ?? "";
 }
 
+/**
+ * A searchable ref picker backed by the server-side catalog typeahead, so it never
+ * loads the whole catalog (a 2000-row Clients list stays on the server). Opens a popover
+ * with a search box + capped results; the selected record's label is fetched by id so it
+ * shows even when it isn't in the current result page. "+ New" is pinned at the top so
+ * it's always reachable regardless of how many matches there are.
+ */
 export function RefSelect({ catalogName, value, onChange }: RefSelectProps) {
+  const name = toSnakeCase(catalogName);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [items, setItems] = useState<EntityRecord[]>([]);
+  const [selected, setSelected] = useState<EntityRecord | null>(null);
+  const [loading, setLoading] = useState(false);
 
+  // Resolve the current value's label (it may not be in the result page).
   useEffect(() => {
-    api.listCatalog(toSnakeCase(catalogName)).then(setItems);
-  }, [catalogName]);
+    if (!value) {
+      setSelected(null);
+      return;
+    }
+    if (selected && selected._id === value) return;
+    let cancelled = false;
+    api.getCatalogItem(name, value).then((r) => !cancelled && setSelected(r)).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [value, name]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const byId = useMemo(() => {
-    const map = new Map<string, EntityRecord>();
-    for (const item of items) map.set(item._id as string, item);
-    return map;
-  }, [items]);
+  // Debounced server-side search while the popover is open.
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    const t = setTimeout(() => {
+      let cancelled = false;
+      api
+        .searchCatalog(name, query, 30)
+        .then((r) => !cancelled && setItems(r))
+        .catch(() => {})
+        .finally(() => !cancelled && setLoading(false));
+      return () => {
+        cancelled = true;
+      };
+    }, 180);
+    return () => clearTimeout(t);
+  }, [open, query, name]);
 
-  const selected = value ? byId.get(value) : undefined;
+  const pick = (item: EntityRecord) => {
+    setSelected(item);
+    onChange(item._id as string);
+    setOpen(false);
+  };
+
+  const addNew = () => {
+    setOpen(false);
+    // Open the catalog's full new-form (a side pane in the islands layout) so every
+    // required field is available; the user returns and picks the new record.
+    window.dispatchEvent(new CustomEvent("onec:action", { detail: `onec://catalogs/${name}/new` }));
+  };
 
   return (
-    <Select value={value ?? ""} onValueChange={onChange}>
-      <SelectTrigger>
-        <SelectValue placeholder={`Select ${catalogName}...`}>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-muted px-3 py-2 text-sm shadow-sm transition-colors hover:bg-accent focus:outline-none focus:ring-1 focus:ring-ring"
+        >
           {selected ? (
             <RefRow item={selected} />
           ) : (
-            <span className="text-muted-foreground">Select {catalogName}...</span>
+            <span className="text-muted-foreground">Select {catalogName}…</span>
           )}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {items.map((item) => (
-          <SelectItem key={item._id as string} value={item._id as string}>
-            <RefRow item={item} />
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+          <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[var(--radix-popover-trigger-width)] overflow-hidden p-0"
+      >
+        {/* "+ New" pinned to the top so it's always reachable. */}
+        <button
+          type="button"
+          onClick={addNew}
+          className="flex w-full items-center gap-2 border-b px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+        >
+          <Plus className="size-4 text-muted-foreground" aria-hidden="true" />
+          New {catalogName}
+        </button>
+        <SearchBox value={query} onChange={setQuery} />
+        <div className="max-h-64 overflow-y-auto py-1">
+          {items.length === 0 ? (
+            <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+              {loading ? "Searching…" : "No matches"}
+            </div>
+          ) : (
+            items.map((item) => (
+              <button
+                key={item._id as string}
+                type="button"
+                onClick={() => pick(item)}
+                className={cn(
+                  "flex w-full items-center px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent",
+                  item._id === value && "bg-accent/60"
+                )}
+              >
+                <RefRow item={item} />
+              </button>
+            ))
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function SearchBox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    // Focus the search input when the popover mounts.
+    const id = requestAnimationFrame(() => ref.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return (
+    <div className="flex items-center gap-2 border-b px-3">
+      <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <input
+        ref={ref}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Search…"
+        className="h-9 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+      />
+    </div>
   );
 }
 
@@ -72,7 +166,7 @@ function RefRow({ item }: { item: EntityRecord }) {
   const avatarUrl = (item.avatar_url as string | undefined) ?? undefined;
   const code = item._code as string | undefined;
   return (
-    <span className="inline-flex items-center gap-2" title={code ? `${display} · ${code}` : display}>
+    <span className="inline-flex min-w-0 items-center gap-2" title={code ? `${display} · ${code}` : display}>
       {avatarUrl ? (
         <Avatar className="h-5 w-5 text-[9px]">
           <AvatarImage src={avatarUrl} alt={display} />

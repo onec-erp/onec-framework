@@ -32,16 +32,22 @@ public class UiProfileResolver {
         return new Resolution(best != null ? best : layout.defaultProfile(), switchable(layout, roles));
     }
 
-    /** The default profile plus every named profile the user is eligible for. */
+    /**
+     * The profiles a user may switch between. A user who matches one or more
+     * named profiles is confined to those — they cannot fall back to the default
+     * back-office. The default profile is offered only to users who match no
+     * named profile at all. This is what locks a curated persona (e.g. a cleaner)
+     * out of every other view: their role grants exactly one profile and nothing
+     * else is switchable.
+     */
     public List<UiLayout.Profile> switchable(UiLayout layout, Set<String> roles) {
-        List<UiLayout.Profile> result = new ArrayList<>();
-        result.add(layout.defaultProfile());
+        List<UiLayout.Profile> matched = new ArrayList<>();
         for (UiLayout.Profile p : layout.profiles()) {
             if (matches(p, roles)) {
-                result.add(p);
+                matched.add(p);
             }
         }
-        return result;
+        return matched.isEmpty() ? List.of(layout.defaultProfile()) : matched;
     }
 
     /**

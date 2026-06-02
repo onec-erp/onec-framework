@@ -59,6 +59,24 @@ public final class Div {
         return node;
     }
 
+    /**
+     * Native DivKit tabs. {@code items} are {@link #tab} entries ({@code {title, div}}).
+     * Renders as a tab strip over the selected tab's content on every official SDK.
+     */
+    public static Map<String, Object> tabs(List<Map<String, Object>> items) {
+        Map<String, Object> node = node("tabs");
+        node.put("items", items);
+        return node;
+    }
+
+    /** One {@link #tabs} entry: a title and the content shown when it's selected. */
+    public static Map<String, Object> tab(String title, Map<String, Object> content) {
+        Map<String, Object> t = new LinkedHashMap<>();
+        t.put("title", title);
+        t.put("div", content);
+        return t;
+    }
+
     public static Map<String, Object> grid(int columnCount, List<Map<String, Object>> items) {
         Map<String, Object> node = node("grid");
         node.put("column_count", columnCount);
@@ -133,6 +151,22 @@ public final class Div {
         return node;
     }
 
+    /**
+     * Attach a client extension to a node. The web client looks up {@code id} in the
+     * registered extensions map and calls its {@code mountView} with the rendered
+     * element + {@code params} — used to stamp DOM hooks (e.g. a row's action url for
+     * right-click menus and hover) that DivKit JSON can't express.
+     */
+    public static Map<String, Object> extension(Map<String, Object> node, String id, Map<String, Object> params) {
+        Map<String, Object> ext = new LinkedHashMap<>();
+        ext.put("id", id);
+        if (params != null && !params.isEmpty()) {
+            ext.put("params", params);
+        }
+        node.put("extensions", List.of(ext));
+        return node;
+    }
+
     public static Map<String, Object> action(Map<String, Object> node, String logId, String url) {
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("log_id", logId);
@@ -169,6 +203,16 @@ public final class Div {
 
     public static Map<String, Object> pad(Map<String, Object> node, int v, int h) {
         return pad(node, v, h, v, h);
+    }
+
+    /**
+     * Outer breathing room for a content-surface root. The web shell used to add this
+     * padding in React around the DivKit content; owning it in the document keeps it
+     * self-contained and consistent across every renderer and device. Single source of
+     * truth, so it can later vary by viewport in one place.
+     */
+    public static Map<String, Object> contentPadding(Map<String, Object> node) {
+        return pad(node, 16, 16);
     }
 
     public static Map<String, Object> pad(Map<String, Object> node, int top, int right, int bottom, int left) {

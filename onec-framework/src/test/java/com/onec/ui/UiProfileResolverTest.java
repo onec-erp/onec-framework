@@ -41,10 +41,24 @@ class UiProfileResolverTest {
     }
 
     @Test
-    void switchable_includesDefaultPlusEligibleProfiles() {
+    void switchable_isLimitedToMatchedProfiles_notDefault() {
         var switchable = resolver.switchable(layout(), Set.of("CLEANER"));
         assertThat(switchable).extracting(UiLayout.Profile::id)
-                .containsExactly("default", "cleaning");
+                .containsExactly("cleaning");
+    }
+
+    @Test
+    void switchable_includesEveryMatchedProfile() {
+        var switchable = resolver.switchable(layout(), Set.of("CLEANER", "MANAGER"));
+        assertThat(switchable).extracting(UiLayout.Profile::id)
+                .containsExactlyInAnyOrder("cleaning", "manager");
+    }
+
+    @Test
+    void switchable_fallsBackToDefault_whenNoProfileMatches() {
+        var switchable = resolver.switchable(layout(), Set.of("GUEST"));
+        assertThat(switchable).extracting(UiLayout.Profile::id)
+                .containsExactly("default");
     }
 
     @Test

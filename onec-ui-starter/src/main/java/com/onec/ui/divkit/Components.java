@@ -9,6 +9,83 @@ final class Components {
 
     private Components() {}
 
+    private static final String TRANSPARENT = "#00000000";
+
+    /**
+     * A monochrome glyph from {@code /icons/{name}.svg}, recolored via {@code tint_color}.
+     * Returns {@code null} for a blank name so callers degrade to label-only.
+     */
+    static Map<String, Object> icon(String name, String color, int size) {
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+        Map<String, Object> img = Div.image("/icons/" + name + ".svg");
+        Div.width(img, size);
+        Div.height(img, size);
+        img.put("scale", "fit");
+        img.put("tint_color", color);
+        return img;
+    }
+
+    /**
+     * A compact action button: optional leading icon + label over an {@code onec://}
+     * action. Sized small-but-tall (roomy vertical padding, tight horizontal).
+     * {@code bg}/{@code border} may be null for a ghost look; {@code url} null for static.
+     */
+    static Map<String, Object> actionButton(String iconName, String label, String fg, String bg, String border,
+                                            String url, String logId) {
+        List<Map<String, Object>> parts = new ArrayList<>();
+        Map<String, Object> glyph = icon(iconName, fg, 15);
+        if (glyph != null) {
+            parts.add(glyph);
+        }
+        Map<String, Object> text = Div.text(label, 13, "medium");
+        Div.color(text, fg);
+        Div.maxLines(text, 1);
+        parts.add(text);
+
+        Map<String, Object> btn = Div.horizontal(parts);
+        // Containers default to match_parent width in DivKit, which would stretch the
+        // button across its row — size it to its content instead.
+        Div.wrapWidth(btn);
+        Div.gap(btn, 6);
+        Div.alignV(btn, "center");
+        Div.pad(btn, 9, 13);
+        Div.corner(btn, 9);
+        if (bg != null) {
+            Div.background(btn, bg);
+        }
+        if (border != null) {
+            Div.stroke(btn, border, 1);
+        }
+        if (url != null) {
+            Div.action(btn, logId, url);
+        }
+        return btn;
+    }
+
+    /**
+     * Native DivKit tabs styled to match the shell: a subtle pill on the active tab,
+     * muted inactive labels, a hairline under the strip.
+     */
+    static Map<String, Object> tabs(List<Map<String, Object>> items, Palette p) {
+        Map<String, Object> node = Div.tabs(items);
+        Map<String, Object> titleStyle = new java.util.LinkedHashMap<>();
+        titleStyle.put("font_size", 14);
+        titleStyle.put("font_weight", "medium");
+        titleStyle.put("active_text_color", p.text());
+        titleStyle.put("inactive_text_color", p.muted());
+        titleStyle.put("active_background_color", p.primarySoft());
+        titleStyle.put("inactive_background_color", TRANSPARENT);
+        titleStyle.put("corner_radius", 8);
+        titleStyle.put("paddings", Map.of("top", 7, "bottom", 7, "left", 14, "right", 14));
+        node.put("tab_title_style", titleStyle);
+        node.put("has_separator", true);
+        node.put("separator_color", p.border());
+        Div.matchWidth(node);
+        return node;
+    }
+
     static Map<String, Object> pageHeader(String title, String subtitle, Palette p) {
         List<Map<String, Object>> items = new ArrayList<>();
         items.add(Div.color(Div.text(title, 22, "bold"), p.text()));
@@ -42,10 +119,32 @@ final class Components {
         return badge;
     }
 
+    /**
+     * A status chip: a colored status dot + label on a neutral pill. The dot carries the
+     * state color (success / muted) so the chip stays quiet instead of a loud solid block.
+     */
     static Map<String, Object> statusBadge(boolean positive, String text, Palette p) {
-        return positive
-                ? badge(text, p.success(), p.successSoft())
-                : badge(text, p.muted(), p.rowAlt());
+        Map<String, Object> dot = Div.container("vertical", List.of());
+        Div.background(dot, positive ? p.success() : p.faint());
+        Div.width(dot, 6);
+        Div.height(dot, 6);
+        Div.corner(dot, 999);
+
+        Map<String, Object> label = Div.text(text, 12, "medium");
+        Div.color(label, p.muted());
+        Div.maxLines(label, 1);
+
+        Map<String, Object> chip = Div.horizontal(List.of(dot, label));
+        // Hug the dot + label (containers default to match_parent, which stretches the
+        // pill and leaves the content adrift on the left).
+        Div.wrapWidth(chip);
+        Div.gap(chip, 6);
+        Div.alignV(chip, "center");
+        Div.pad(chip, 5, 10);
+        Div.corner(chip, 999);
+        Div.background(chip, p.rowAlt());
+        Div.stroke(chip, p.border(), 1);
+        return chip;
     }
 
     // Each column is a fixed width with single-line cells, so a wide table keeps its
@@ -98,6 +197,9 @@ final class Components {
             }
             if (row.actionUrl() != null) {
                 Div.action(rowNode, "open", row.actionUrl());
+                // Stamp the row's action url on the DOM (see frontend "row" extension) so
+                // the client can offer a right-click Open/Edit menu and a hover highlight.
+                Div.extension(rowNode, "row", Map.of("url", row.actionUrl()));
             }
             stack.add(rowNode);
         }

@@ -1,6 +1,7 @@
 package com.example.domain.registers;
 
 import com.example.domain.catalogs.Property;
+import com.onec.annotations.AccessControl;
 import com.onec.annotations.AccumulationRegister;
 import com.onec.annotations.Dimension;
 import com.onec.annotations.Resource;
@@ -14,6 +15,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 @AccumulationRegister(name = "Occupancy", type = AccumulationType.TURNOVER, context = "Rentals")
+@AccessControl(readRoles = {"RENTALS", "FINANCE"})
 @Getter
 @Setter
 public class OccupancyRegister extends AccumulationRecord {
