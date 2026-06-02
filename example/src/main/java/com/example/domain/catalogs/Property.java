@@ -33,6 +33,5 @@ public class Property extends CatalogObject {
 
     /** Código de establecimiento assigned by SES.HOSPEDAJES; required to register partes for this property. */
     @Attribute(displayName = "SES establishment code", length = 10)
-    @UiHint(order = 5)
     private String sesEstablishmentCode;
 }

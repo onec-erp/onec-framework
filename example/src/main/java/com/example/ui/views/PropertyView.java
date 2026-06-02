@@ -36,6 +36,7 @@ public class PropertyView implements EntityView {
                 .field("address").order(1)
                 .field("capacityAdults").order(2)
                 .field("defaultNightRate").order(3)
-                .field("cleaningFee").order(4);
+                .field("cleaningFee").order(4)
+                .field("sesEstablishmentCode").order(5);
     }
 }

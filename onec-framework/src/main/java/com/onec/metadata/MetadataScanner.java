@@ -42,6 +42,7 @@ public class MetadataScanner {
         return sb.toString();
     }
 
+    @SuppressWarnings("removal")
     public List<DashboardWidgetDescriptor> scanDashboardWidgets(Class<?> clazz) {
         DashboardWidget[] widgets = clazz.getAnnotationsByType(DashboardWidget.class);
         if (widgets.length == 0) return List.of();
@@ -219,6 +220,7 @@ public class MetadataScanner {
         return new ConstantDescriptor(logicalName, clazz, field.getType(), field.getName());
     }
 
+    @SuppressWarnings("removal")
     private List<AttributeDescriptor> scanDimensions(Class<?> clazz, Class<?> stopClass) {
         List<AttributeDescriptor> result = new ArrayList<>();
         Class<?> current = clazz;
@@ -253,6 +255,7 @@ public class MetadataScanner {
         return result;
     }
 
+    @SuppressWarnings("removal")
     private List<AttributeDescriptor> scanResources(Class<?> clazz, Class<?> stopClass) {
         List<AttributeDescriptor> result = new ArrayList<>();
         Class<?> current = clazz;
@@ -285,6 +288,7 @@ public class MetadataScanner {
         return result;
     }
 
+    @SuppressWarnings("removal")
     private List<AttributeDescriptor> scanAttributes(Class<?> clazz, Class<?> stopClass) {
         List<AttributeDescriptor> result = new ArrayList<>();
         Class<?> current = clazz;

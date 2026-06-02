@@ -7,6 +7,125 @@ and future service boundaries.
 The goal is not to clone 1C. The goal is to give a modern Java team, or an AI agent working with one,
 a compact way to turn business documentation into a working, inspectable, evolvable application.
 
+## Repository Operating Rules For AI Agents
+
+This repository is intended to be edited by AI coding agents. Keep changes small, verifiable, and friendly
+to future agents that may not have the full conversation context.
+
+### Current Status
+
+- The GitHub repository is private while licensing is undecided.
+- Do not add a `LICENSE` file or license claims unless the user explicitly chooses one.
+- Published coordinates currently use `group = "com.onec"` and `version = "0.1.0"`.
+- Java 21 is required. The Gradle wrapper is the source of truth for builds.
+- `onec-ui-starter` builds a bundled frontend with Node 20 via Gradle.
+
+### Repo Map
+
+| Path | Role |
+| --- | --- |
+| `onec-framework` | Core annotations, metadata, schema, posting, repository contracts, UI model, and shared types. |
+| `onec-framework-starter` | Spring Boot auto-configuration for the core framework. |
+| `onec-ui-starter` | Generic web UI controllers plus packaged frontend assets. |
+| `onec-auth-starter` | Security and auth API auto-configuration. |
+| `onec-print-starter` | Print/PDF rendering support. |
+| `onec-mail-starter` | Mail templates, dispatchers, preview endpoints, and outbox relay. |
+| `onec-kafka-starter` | Kafka/event transport helpers. |
+| `onec-desktop-starter` | Desktop runtime support and bundled Tauri shell resources. |
+| `onec-desktop-gradle-plugin` | Gradle plugin for native desktop packaging. |
+| `onec-hospedajes-starter` | SES.HOSPEDAJES integration. |
+| `onec-guesty-starter` | Guesty Open API integration. |
+| `example` | Local example app and smoke-test consumer inside the multi-module build. Do not publish it. |
+
+### Before Editing
+
+1. Read the relevant module's `build.gradle.kts`.
+2. Check whether the change belongs in core, a starter, the desktop plugin, the UI frontend, or the example app.
+3. Prefer extending existing framework concepts over adding parallel mechanisms.
+4. Keep public API changes intentional. If you change annotations, model base classes, repository contracts, or auto-configuration properties, update docs and tests in the same pass.
+5. Preserve user changes in the working tree. Do not reset, checkout, or clean files unless the user explicitly asks.
+
+### Build And Verification Commands
+
+Use the narrowest useful command while iterating, then finish with the broader checks.
+
+```bash
+# Compile/check everything, including the example app and frontend packaging.
+./gradlew clean check
+
+# Verify artifacts can be consumed by external projects through Maven local.
+./gradlew publishToMavenLocal
+
+# Publish to GitHub Packages only when explicitly requested and credentials are available.
+GITHUB_ACTOR=... GITHUB_TOKEN=... ./gradlew publish
+```
+
+For targeted iteration:
+
+```bash
+./gradlew :onec-framework:test
+./gradlew :onec-framework-starter:compileJava
+./gradlew :onec-ui-starter:buildFrontend
+./gradlew :onec-ui-starter:compileJava
+```
+
+`publishToMavenLocal` is important: a build can pass with project dependencies but still fail while producing
+sources, javadocs, POM metadata, or binary artifacts.
+
+### Generated Files And Caches
+
+Do not commit generated or local-only files:
+
+- `.gradle/`
+- `build/`
+- `.kotlin/`
+- `data/`
+- `onec-ui-starter/src/main/frontend/dist/`
+- `onec-ui-starter/src/main/frontend/node_modules/`
+- `*.tsbuildinfo`
+
+If a tool creates a cache that appears in `git status`, remove it unless it is intentionally part of the change.
+
+### Publication And Consumption Expectations
+
+The reusable surface is the set of published modules under `com.onec:*:0.1.0`. External projects should consume
+artifacts from `mavenLocal()` during development or GitHub Packages after publishing. Avoid requiring consumers
+to use `includeBuild` except for local desktop-plugin development.
+
+Spring Boot starters must expose auto-configuration through:
+
+```text
+src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+```
+
+When adding a starter, include:
+
+- `java-library`
+- `maven-publish`
+- `withSourcesJar()`
+- `withJavadocJar()`
+- a Spring Boot auto-configuration imports file if the module contributes auto-configured beans
+- README or root README updates explaining how a consumer enables it
+
+### Known Non-Blocking Warnings
+
+- Deprecated annotation warnings for `@UiHint`, `@UiSection`, and `@DashboardWidget` are expected in old code.
+  Do not add these annotations to new code.
+- Javadoc currently emits many missing-comment warnings. Broken links are not acceptable because they can fail
+  publication.
+- The frontend npm audit may report moderate vulnerabilities. Do not run forced upgrades without checking the
+  impact on the UI build and generated assets.
+
+### AI-Friendly Change Style
+
+- Prefer a vertical slice with tests over broad refactors.
+- Add tests near the module that owns the behavior.
+- For framework behavior, test core logic in `onec-framework` and Spring wiring in the relevant starter.
+- For public API changes, include a tiny example or README snippet so future agents see intended usage.
+- Name business concepts clearly. The UI manifest and generated APIs should read like the business domain, not
+  like database plumbing.
+- Keep generated framework behavior inspectable. Avoid magic string conventions when typed Java APIs already exist.
+
 ## First Principle
 
 Model the business before writing code.
@@ -403,7 +522,7 @@ When a document affects another context, prefer emitting an event or writing to 
 
 Do not create premature microservices. Mark contexts first, then split when load, team ownership, or deployment needs justify it.
 
-Keep UI concerns out of domain classes. Sidebar placement, dashboard widgets, and per-field display hints belong in an `OneCUiConfigurer`, not on the entity itself. Do not add `@UiSection`, `@UiHint`, or `@DashboardWidget` to new code — they are deprecated.
+Keep UI concerns out of domain classes. Sidebar placement belongs in `Layout` beans, dashboard widgets belong in `Page` beans, and per-field display hints belong in `EntityView` or `Layout` configuration. Do not add `@UiSection`, `@UiHint`, or `@DashboardWidget` to new code — they are deprecated.
 
 ## Code Patterns
 
@@ -594,10 +713,27 @@ Then implement the vertical slice. Do not ask for every detail up front. Get eno
 
 ## Verification
 
-After implementation, run:
+After implementation, choose the verification level that matches the change.
+
+For narrow Java changes, run the owning module's tests:
 
 ```bash
-./gradlew test
+./gradlew :onec-framework:test
+./gradlew :onec-mail-starter:test
+```
+
+For changes that affect public artifacts, starter wiring, frontend packaging, or the example app, run:
+
+```bash
+./gradlew clean check
+./gradlew publishToMavenLocal
+```
+
+For UI frontend-only changes, at minimum run:
+
+```bash
+./gradlew :onec-ui-starter:buildFrontend
+./gradlew :onec-ui-starter:processResources
 ```
 
 For a running app, inspect:

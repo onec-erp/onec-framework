@@ -8,20 +8,24 @@ import java.lang.annotation.Target;
 /**
  * Per-field UI hint.
  *
- * @deprecated Configure field hints via {@code UiLayoutBuilder} in your
- * {@code OneCUiConfigurer} instead, e.g.
+ * @deprecated Configure field hints in an {@code EntityView} or {@code Layout}
+ * bean instead, e.g.
  * {@snippet :
- *   layout.section("Sales").document(Invoice.class, d -> d
- *           .field("total").order(10).hideInForm()
- *           .field("notes").widget("textarea"));
+ *   class InvoiceView implements EntityView {
+ *       public Class<?> entity() { return Invoice.class; }
+ *       public void fields(EntityConfigBuilder f) {
+ *           f.field("total").order(10).hideInForm()
+ *            .field("notes").widget("textarea");
+ *       }
+ *   }
  * }
  * Layout-configured hints override this annotation. The annotation will be
  * removed in the next release.
  *
  * <p><b>One exception:</b> tabular section row classes (e.g. line-item rows
  * inside a document's {@code @TabularSection}). The DSL does not yet expose
- * tabular section field hints; keep {@code @UiHint} on those row classes
- * until that capability lands.</p>
+ * tabular section field hints; use {@code @UiHint} on those row classes only
+ * when custom row-field hints are still required.</p>
  */
 @Deprecated(since = "next", forRemoval = true)
 @Retention(RetentionPolicy.RUNTIME)

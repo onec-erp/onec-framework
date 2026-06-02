@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Emits the app chrome as two independent DivKit cards — the {@link #topbar} (brand
- * + actions) and the {@link #nav} — so the client can position them per
+ * Emits the app chrome as two independent DivKit cards — the {@code topbar} (brand
+ * + actions) and the {@code nav} — so the client can position them per
  * {@link NavStyle}: nav as a horizontal {@code TOPBAR}, a vertical {@code SIDEBAR}
  * rail, or a pinned {@code BOTTOM_BAR}. Splitting them lets a sidebar sit beside
  * content and a bottom bar pin below it; a single combined card couldn't do both.

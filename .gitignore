@@ -17,8 +17,12 @@ Thumbs.db
 data/
 
 # Frontend build artifacts
-framework-ui-spring-boot-starter/src/main/frontend/dist/
-framework-ui-spring-boot-starter/src/main/frontend/node_modules/
+onec-ui-starter/src/main/frontend/dist/
+onec-ui-starter/src/main/frontend/node_modules/
+*.tsbuildinfo
+
+# Kotlin
+.kotlin/
 
 # AI tooling
 .ai/
