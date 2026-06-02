@@ -29,7 +29,7 @@ Implemented:
 - Dry-run posting previews
 - Domain event metadata and outbox publication hooks
 - `onec-auth-spring-boot-starter` with session-based defaults, JSON login/logout, CSRF cookie, in-memory users via `onec.auth.users`
-- UI configuration decoupled from domain: sidebar sections, dashboard widgets, and per-field hints all live in an `OneCUiConfigurer`. The `@UiHint`, `@UiSection`, and `@DashboardWidget` annotations are deprecated; layout-configured hints override the annotation when both are present. `/api/ui/metadata/dashboard` and `/manifest` both read from the configurer.
+- UI configuration decoupled from domain: sidebar sections live in `Layout` beans, dashboard widgets live in `Page` beans, and per-field hints live in `EntityView` or `Layout` configuration. The `@UiHint`, `@UiSection`, and `@DashboardWidget` annotations are deprecated; authored UI configuration overrides the annotations when both are present. `/api/ui/metadata/dashboard` and `/manifest` both read from authored pages/layouts.
 
 ## Design Direction
 
@@ -54,7 +54,7 @@ Good next slices:
 - Migration snapshots and model diffs, not only additive column migration
 - Scheduled/retrying outbox relay
 - More generated test fixtures from business manifests
-- Tabular-section field hints in the `OneCUiConfigurer` DSL so `@UiHint` can be deleted entirely (currently still needed on tabular row classes)
+- Tabular-section field hints in the authored UI DSL so `@UiHint` can be deleted entirely when custom row-field hints are needed.
 - DivKit renderer prototype: emit DivKit JSON from existing descriptors + layout, mount alongside the React renderer behind a `?renderer=divkit` flag, validate against list/form/dashboard surfaces
 
 ## Auth Direction
