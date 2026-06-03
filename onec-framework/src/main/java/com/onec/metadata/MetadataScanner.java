@@ -87,13 +87,14 @@ public class MetadataScanner {
         }
 
         String logicalName = catalog.name();
+        String displayTitle = catalog.title().isEmpty() ? logicalName : catalog.title();
         String storageKey = catalog.tableName().isEmpty() ? logicalName : catalog.tableName();
         String tableName = naming.catalogTable(storageKey);
         int codeLength = catalog.codeLength();
 
         List<AttributeDescriptor> attributes = scanAttributes(clazz, CatalogObject.class);
 
-        return new CatalogDescriptor(logicalName, tableName, clazz, codeLength,
+        return new CatalogDescriptor(logicalName, displayTitle, tableName, clazz, codeLength,
                 catalog.hierarchical(), catalog.autoNumber(), catalog.codePrefix(),
                 catalog.context(), readRoles(clazz), writeRoles(clazz), attributes);
     }
@@ -108,6 +109,7 @@ public class MetadataScanner {
         }
 
         String logicalName = document.name();
+        String displayTitle = document.title().isEmpty() ? logicalName : document.title();
         String storageKey = document.tableName().isEmpty() ? logicalName : document.tableName();
         String tableName = naming.documentTable(storageKey);
         int numberLength = document.numberLength();
@@ -115,7 +117,7 @@ public class MetadataScanner {
         List<AttributeDescriptor> attributes = scanAttributes(clazz, DocumentObject.class);
         List<TabularSectionDescriptor> tabularSections = scanTabularSections(clazz, storageKey);
 
-        return new DocumentDescriptor(logicalName, tableName, clazz, numberLength,
+        return new DocumentDescriptor(logicalName, displayTitle, tableName, clazz, numberLength,
                 document.autoNumber(), document.numberPrefix(), document.context(),
                 readRoles(clazz), writeRoles(clazz), attributes, tabularSections);
     }
@@ -130,6 +132,7 @@ public class MetadataScanner {
         }
 
         String logicalName = reg.name();
+        String displayTitle = reg.title().isEmpty() ? logicalName : reg.title();
         String storageKey = reg.tableName().isEmpty() ? logicalName : reg.tableName();
         String tableName = naming.registerTable(storageKey);
         String totalsTableName = naming.registerTotalsTable(storageKey);
@@ -139,7 +142,7 @@ public class MetadataScanner {
         List<AttributeDescriptor> resources = scanResources(clazz, AccumulationRecord.class);
 
         return new AccumulationRegisterDescriptor(
-                logicalName, tableName, totalsTableName, clazz, type, reg.context(),
+                logicalName, displayTitle, tableName, totalsTableName, clazz, type, reg.context(),
                 readRoles(clazz), writeRoles(clazz), dimensions, resources);
     }
 
