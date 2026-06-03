@@ -55,7 +55,14 @@ public interface GuestyClient {
 
     // --- Guests ---
 
-    /** A page of guest CRM records. Requires the account to grant guest access (else HTTP 403). */
+    /**
+     * A page of guest CRM records from {@code /guests-crud}. Unlike the other list endpoints, this one
+     * requires a <strong>{@code columns}</strong> query param (a space-separated <em>string</em> of field
+     * names) and rejects the request with HTTP 400 {@code "columns must be a string"} if it is missing —
+     * so {@link DefaultGuestyClient} supplies a sensible default when the caller omits it, and also
+     * accepts the {@code fields} key used by the other endpoints, translating it to {@code columns}.
+     * It also names the page total {@code total} rather than {@code count} (see {@link Page}).
+     */
     Page<Guest> listGuests(Map<String, ?> query);
 
     Guest getGuest(String id);

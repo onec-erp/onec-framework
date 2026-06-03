@@ -75,9 +75,29 @@ public class DefaultGuestyClient implements GuestyClient {
 
     // --- Guests ---
 
+    /** Guesty's {@code /guests-crud} requires a {@code columns} string; used when the caller gives none. */
+    private static final String DEFAULT_GUEST_COLUMNS = "fullName firstName lastName email phone emails phones";
+
     @Override
     public Page<Guest> listGuests(Map<String, ?> query) {
-        return get("/guests-crud", query, new ParameterizedTypeReference<Page<Guest>>() {});
+        return get("/guests-crud", guestQuery(query), new ParameterizedTypeReference<Page<Guest>>() {});
+    }
+
+    /**
+     * Normalises a guests query to what {@code /guests-crud} actually expects: a {@code columns} string
+     * (required — its absence is a 400, not a 403). We accept the {@code fields} key the other endpoints
+     * use and translate it, and default {@code columns} when neither is supplied.
+     */
+    private Map<String, Object> guestQuery(Map<String, ?> query) {
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        if (query != null) {
+            out.putAll(query);
+        }
+        Object fields = out.remove("fields");
+        if (!out.containsKey("columns")) {
+            out.put("columns", fields != null ? fields.toString() : DEFAULT_GUEST_COLUMNS);
+        }
+        return out;
     }
 
     @Override

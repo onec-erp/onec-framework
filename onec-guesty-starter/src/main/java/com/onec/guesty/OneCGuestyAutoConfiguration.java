@@ -25,21 +25,28 @@ import org.springframework.web.client.RestClient;
 public class OneCGuestyAutoConfiguration {
 
     @Bean
-    @ConditionalOnMissingBean(name = "guestyObjectMapper")
-    public ObjectMapper guestyObjectMapper(ObjectProvider<ObjectMapper> provider) {
-        ObjectMapper shared = provider.getIfAvailable();
+    @ConditionalOnMissingBean
+    public GuestyTokenManager guestyTokenManager(GuestyProperties properties,
+                                                 ObjectProvider<RestClient.Builder> builderProvider,
+                                                 ObjectProvider<ObjectMapper> objectMapperProvider) {
+        return new GuestyTokenManager(properties, restClientBuilder(builderProvider, properties),
+                resolveObjectMapper(objectMapperProvider));
+    }
+
+    /**
+     * The application's {@link ObjectMapper} when it exposes exactly one, otherwise a private mapper.
+     * We must NOT define our own {@code ObjectMapper} bean here: a bean of type {@code ObjectMapper}
+     * that injects {@code ObjectProvider<ObjectMapper>} resolves to itself when the app has no other
+     * mapper (a plain web app may not), and the context fails to start with a self-referencing cycle.
+     * Resolving lazily inside the consumer — and using {@code getIfUnique()} so multiple candidates
+     * fall back rather than throw — sidesteps that entirely.
+     */
+    private ObjectMapper resolveObjectMapper(ObjectProvider<ObjectMapper> provider) {
+        ObjectMapper shared = provider.getIfUnique();
         if (shared != null) {
             return shared;
         }
         return new ObjectMapper().registerModule(new JavaTimeModule());
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public GuestyTokenManager guestyTokenManager(GuestyProperties properties,
-                                                 ObjectProvider<RestClient.Builder> builderProvider,
-                                                 ObjectMapper guestyObjectMapper) {
-        return new GuestyTokenManager(properties, restClientBuilder(builderProvider, properties), guestyObjectMapper);
     }
 
     @Bean
