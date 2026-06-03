@@ -129,7 +129,7 @@ public final class SurfaceDivBuilder {
 
         boolean posted = Boolean.TRUE.equals(row.get("_posted"));
         Map<String, Object> badge = Components.statusBadge(posted, posted ? "Posted" : "Draft", p);
-        items.add(detailHeader(str(meta.get("name")), str(row.get("_number")), badge, actions, p));
+        items.add(detailHeader(titleOf(meta), str(row.get("_number")), badge, actions, p));
 
         List<Map<String, Object>> fieldRows = new ArrayList<>();
         fieldRows.add(Components.fieldRow("Date", str(row.get("_date")), p));
@@ -180,7 +180,7 @@ public final class SurfaceDivBuilder {
         // the attributes — no duplicate Code/Description rows.
         String description = str(row.get("_description"));
         String code = str(row.get("_code"));
-        String title = description.isBlank() ? str(meta.get("name")) : description;
+        String title = description.isBlank() ? titleOf(meta) : description;
         String subtitle = description.isBlank() ? code : (code.isBlank() ? null : code);
         items.add(detailHeader(title, subtitle, null, actions, p));
 
@@ -225,7 +225,7 @@ public final class SurfaceDivBuilder {
         boolean isBalance = "BALANCE".equals(type);
 
         List<Map<String, Object>> items = new ArrayList<>();
-        items.add(Components.pageHeader(str(meta.get("name")),
+        items.add(Components.pageHeader(titleOf(meta),
                 isBalance ? "Balance register" : "Turnover register", p));
 
         Map<String, Object> movementsTable = movementsTable(movements, dimensions, resources, p);
@@ -452,5 +452,15 @@ public final class SurfaceDivBuilder {
 
     private static String str(Object value) {
         return value == null ? "" : value.toString();
+    }
+
+    /**
+     * The entity's display heading: its {@code title} when set, else the URL-safe
+     * {@code name}. Keeps localized/multi-word titles out of routes while still showing
+     * them in list/detail/report headers.
+     */
+    private static String titleOf(Map<String, Object> meta) {
+        String title = str(meta.get("title"));
+        return title.isBlank() ? str(meta.get("name")) : title;
     }
 }

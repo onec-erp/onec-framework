@@ -380,7 +380,9 @@ public class DivKitController {
                     .filter(item -> access.canRead(principal, item.type(), item.name()))
                     .filter(item -> isDeclared(item, profileId))
                     .map(item -> new ShellLayoutBuilder.NavItem(
-                            item.name(), "onec:/" + item.href(),
+                            // The display label is the title (falls back to name); the route
+                            // still keys off the URL-safe href.
+                            item.title(), "onec:/" + item.href(),
                             // An explicitly authored icon wins; otherwise fall back to the
                             // name heuristic (with the section icon as its final default).
                             item.icon() != null && !item.icon().isBlank()

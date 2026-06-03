@@ -30,6 +30,7 @@ public class ResolvedMetadataService {
     public Map<String, Object> describeCatalog(CatalogDescriptor d) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("name", d.logicalName());
+        map.put("title", d.displayTitle());
         map.put("tableName", d.tableName());
         map.put("codeLength", d.codeLength());
         map.put("hierarchical", d.hierarchical());
@@ -49,6 +50,7 @@ public class ResolvedMetadataService {
     public Map<String, Object> describeDocument(DocumentDescriptor d) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("name", d.logicalName());
+        map.put("title", d.displayTitle());
         map.put("tableName", d.tableName());
         map.put("numberLength", d.numberLength());
         map.put("autoNumber", d.autoNumber());
@@ -91,6 +93,7 @@ public class ResolvedMetadataService {
     public Map<String, Object> describeRegister(AccumulationRegisterDescriptor d) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("name", d.logicalName());
+        map.put("title", d.displayTitle());
         map.put("tableName", d.tableName());
         map.put("type", d.accumulationType().name());
         map.put("context", d.context());
