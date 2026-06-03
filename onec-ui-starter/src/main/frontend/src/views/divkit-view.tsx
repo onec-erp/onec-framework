@@ -87,9 +87,21 @@ function newPaneId(): string {
   return `pane-${paneSeq}`;
 }
 
+// Percent-decode a single route segment for display. Route segments can be
+// percent-encoded (a non-ASCII or spaced entity name leaks into the URL as
+// e.g. "%D0%97..."), and a tab title built from the raw segment would show that
+// encoded form. Falls back to the raw segment if it isn't valid encoding.
+function decodeSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
 function humanizeRouteToken(token: string): string {
-  return token
-    .split("_")
+  return decodeSegment(token)
+    .split(/[_\s]+/)
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
@@ -104,7 +116,7 @@ function tabForPath(pathname: string): WorkspaceTab {
 
   if (detail === "new") return { path, title: `New ${entity}` };
   if (action === "edit") return { path, title: `Edit ${entity}` };
-  if (detail) return { path, title: `${entity} ${detail.slice(0, 8)}` };
+  if (detail) return { path, title: `${entity} ${decodeSegment(detail).slice(0, 8)}` };
   return { path, title: entity };
 }
 
