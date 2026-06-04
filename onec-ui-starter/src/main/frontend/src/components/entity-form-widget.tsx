@@ -29,6 +29,12 @@ export type FormDescriptor = {
   id: string | null;
   title: string;
   submitLabel: string;
+  /**
+   * A "Duplicate" form: {@code id} identifies the source record (so the host closes the right
+   * pane), but the form submits as a create into a brand-new record. {@code initial} carries the
+   * source's attributes/line items minus its identity (see DivKitController#duplicateDraft).
+   */
+  duplicate?: boolean;
   meta: {
     name: string;
     autoNumber?: boolean;
@@ -62,8 +68,12 @@ function dispatchClose(path: string) {
 
 export function EntityFormWidget({ form }: { form: FormDescriptor }) {
   const { kind, name, id, meta, initial } = form;
-  const isEdit = id != null;
-  const formPath = `/${kind}/${name}/${isEdit ? `${id}/edit` : "new"}`;
+  // A duplicate carries the source id (for pane routing/close) but still creates a new record.
+  const isDuplicate = form.duplicate === true;
+  const isEdit = id != null && !isDuplicate;
+  const formPath = `/${kind}/${name}/${
+    isDuplicate ? `${id}/duplicate` : isEdit ? `${id}/edit` : "new"
+  }`;
 
   // Build the ordered field list: catalogs lead with code (unless auto-numbered) +
   // description; both then list the visible-in-form attributes by their order hint.

@@ -199,5 +199,5 @@ export const DivKitContent = forwardRef<ContentHandle, {
     };
   }, [surfaceKey, theme, card]);
 
-  return <div ref={hostRef} />;
+  return <div ref={hostRef} className="onec-surface" />;
 });
