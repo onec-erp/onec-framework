@@ -232,7 +232,9 @@ export function EntityListWidget({ list }: { list: ListDescriptor }) {
   for (let i = startIndex; i < endIndex; i++) visible.push(i);
 
   return (
-    <div className="flex flex-col px-4 py-4 sm:px-6">
+    // DivKit wraps custom blocks in spans with pointer-events:none, which the island inherits —
+    // re-assert pointer-events:auto here so hover, row clicks and the right-click menu all work.
+    <div className="pointer-events-auto flex flex-col px-4 py-4 sm:px-6">
       {/* toolbar */}
       <div className="mb-3 flex items-center gap-3">
         <div className="min-w-0">
