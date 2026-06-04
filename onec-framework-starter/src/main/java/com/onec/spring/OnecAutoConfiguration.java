@@ -41,7 +41,24 @@ public class OnecAutoConfiguration extends AbstractJdbcConfiguration {
 
     @Bean
     public NamingStrategy oneCNamingStrategy() {
-        return new OnecNamingStrategy();
+        return new OnecNamingStrategy(buildTabularSectionTables(resolvePackages(oneCProperties, bootstrapContext)));
+    }
+
+    /**
+     * Maps each tabular-section row class to the child table the schema generator creates
+     * ({@code document_<doc>_<section>}), so {@link OnecNamingStrategy} can give Spring Data JDBC
+     * the same table name when it persists a document's {@code @TabularSection List<Row>}.
+     */
+    static Map<Class<?>, String> buildTabularSectionTables(List<String> scanPackages) {
+        Map<Class<?>, String> map = new HashMap<>();
+        MetadataScanner scanner = new MetadataScanner(new DefaultNamingStrategy());
+        for (Class<?> clazz : new DocumentScanner().scan(scanPackages)) {
+            DocumentDescriptor doc = scanner.scanDocument(clazz);
+            for (TabularSectionDescriptor ts : doc.tabularSections()) {
+                map.put(ts.rowClass(), ts.tableName());
+            }
+        }
+        return map;
     }
 
     @Override
