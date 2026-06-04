@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { DivKit, type DivKitProps } from "@divkitframework/react";
-import { ExternalLink, Pencil, X } from "lucide-react";
+import { Copy, ExternalLink, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   createGlobalVariablesController,
@@ -116,6 +116,7 @@ function tabForPath(pathname: string): WorkspaceTab {
 
   if (detail === "new") return { path, title: `New ${entity}` };
   if (action === "edit") return { path, title: `Edit ${entity}` };
+  if (action === "duplicate") return { path, title: `Duplicate ${entity}` };
   if (detail) return { path, title: `${entity} ${decodeSegment(detail).slice(0, 8)}` };
   return { path, title: entity };
 }
@@ -485,6 +486,10 @@ export function DivKitView() {
   // left-click / Esc / resize dismisses it.
   useEffect(() => {
     const onCtx = (e: MouseEvent) => {
+      // Yield to an active text selection: if the user highlighted a value and right-clicks,
+      // let the browser's native Copy menu through instead of hijacking it with the row menu.
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed && selection.toString().trim()) return;
       const el = (e.target as HTMLElement)?.closest?.("[data-onec-row]") as HTMLElement | null;
       const url = el?.dataset.onecRow;
       if (!url) return;
@@ -911,6 +916,7 @@ export function DivKitView() {
       {[
         { label: "Open", icon: ExternalLink, url: rowMenu.url },
         { label: "Edit", icon: Pencil, url: rowMenu.url + "/edit" },
+        { label: "Duplicate", icon: Copy, url: rowMenu.url + "/duplicate" },
       ].map(({ label, icon: Icon, url }) => (
         <button
           key={label}

@@ -7,6 +7,7 @@ import com.example.domain.catalogs.Employee;
 import com.example.domain.catalogs.Property;
 import com.example.domain.documents.Bill;
 import com.example.domain.documents.Booking;
+import com.example.domain.documents.Guest;
 import com.example.domain.documents.Payment;
 import com.example.domain.enumerations.DocType;
 import com.example.repositories.BankAccountRepository;
@@ -310,8 +311,17 @@ public class RentalSeeder implements CommandLineRunner {
                 Employee assignee = assignable.get(rnd.nextInt(assignable.size()));
                 b.setAssignedTo(Ref.of(Employee.class, assignee.getId()));
             }
-            // Guest tabular section omitted: Spring Data JDBC repo path doesn't drive
-            // the framework's tabular-section persistence. Primary client already linked above.
+            // Travelers as a tabular section — persisted end-to-end through the typed
+            // repository (bookings.save) now that #24 maps tabular sections in Spring Data JDBC.
+            b.getGuests().add(guest(primary.getId(), true, false));
+            for (int g = 1; g < adults; g++) {
+                Client extraAdult = clientList.get(rnd.nextInt(clientList.size()));
+                b.getGuests().add(guest(extraAdult.getId(), false, false));
+            }
+            for (int c = 0; c < children; c++) {
+                Client child = clientList.get(rnd.nextInt(clientList.size()));
+                b.getGuests().add(guest(child.getId(), false, true));
+            }
 
             Booking saved = bookings.save(b);
             bookingsCreated++;
@@ -369,6 +379,14 @@ public class RentalSeeder implements CommandLineRunner {
     }
 
     // ------------------------------ helpers ------------------------------
+
+    private Guest guest(java.util.UUID clientId, boolean mainGuest, boolean isChild) {
+        Guest g = new Guest();
+        g.setClient(Ref.of(Client.class, clientId));
+        g.setMainGuest(mainGuest);
+        g.setChild(isChild);
+        return g;
+    }
 
     private String pick(String[] options) {
         return options[rnd.nextInt(options.length)];

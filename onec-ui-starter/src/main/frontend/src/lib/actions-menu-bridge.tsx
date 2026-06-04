@@ -2,6 +2,7 @@ import { useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import {
   CircleCheck,
+  Copy,
   Ellipsis,
   Pencil,
   RotateCcw,
@@ -105,6 +106,7 @@ const ICONS: Record<string, LucideIcon> = {
   "circle-check": CircleCheck,
   "rotate-ccw": RotateCcw,
   pencil: Pencil,
+  copy: Copy,
   "trash-2": Trash2,
 };
 
