@@ -1,5 +1,6 @@
 package com.onec.ui;
 
+import com.onec.events.EntityChangedEvent;
 import com.onec.metadata.AttributeDescriptor;
 import com.onec.metadata.DocumentDescriptor;
 import com.onec.metadata.MetadataRegistry;
@@ -15,6 +16,7 @@ import com.onec.types.Ref;
 
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.Update;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -37,7 +39,7 @@ public class GenericDocumentController {
     private final NumberGenerator numberGenerator;
     private final PostingService postingService;
     private final UiAccessService access;
-    private final UiEventPublisher eventPublisher;
+    private final ApplicationEventPublisher events;
     private final DocumentQueryService query;
     private final SecretCipher secretCipher;
     private final WriteValidator writeValidator = new WriteValidator();
@@ -47,7 +49,7 @@ public class GenericDocumentController {
                                       PostingService postingService,
                                       DocumentQueryService query,
                                       UiAccessService access,
-                                      UiEventPublisher eventPublisher,
+                                      ApplicationEventPublisher events,
                                       SecretCipher secretCipher) {
         this.registry = registry;
         this.jdbi = jdbi;
@@ -56,7 +58,7 @@ public class GenericDocumentController {
         this.postingService = postingService;
         this.query = query;
         this.access = access;
-        this.eventPublisher = eventPublisher;
+        this.events = events;
         this.secretCipher = secretCipher;
     }
 
@@ -125,8 +127,10 @@ public class GenericDocumentController {
 
         insertTabularSections(desc, id, body);
 
-        eventPublisher.publish("created", "document", desc.logicalName(), id);
-        return query.get(desc, id);
+        Map<String, Object> result = query.get(desc, id);
+        events.publishEvent(new EntityChangedEvent(EntityChangedEvent.CREATED, EntityChangedEvent.DOCUMENT,
+                desc.logicalName(), id, naturalKey(result)));
+        return result;
     }
 
     @PutMapping("/{name}/{id}")
@@ -188,8 +192,10 @@ public class GenericDocumentController {
         }
         insertTabularSections(desc, id, body);
 
-        eventPublisher.publish("updated", "document", desc.logicalName(), id);
-        return query.get(desc, id);
+        Map<String, Object> result = query.get(desc, id);
+        events.publishEvent(new EntityChangedEvent(EntityChangedEvent.UPDATED, EntityChangedEvent.DOCUMENT,
+                desc.logicalName(), id, naturalKey(result)));
+        return result;
     }
 
     @PostMapping("/{name}/{id}/post")
@@ -205,9 +211,12 @@ public class GenericDocumentController {
             postingService.unpost(doc);
         }
         postingService.post(doc);
-        eventPublisher.publish("posted", "document", desc.logicalName(), id);
-        eventPublisher.publish("changed", "register", "*", id);
-        return query.get(desc, id);
+        Map<String, Object> result = query.get(desc, id);
+        events.publishEvent(new EntityChangedEvent(EntityChangedEvent.POSTED, EntityChangedEvent.DOCUMENT,
+                desc.logicalName(), id, naturalKey(result)));
+        events.publishEvent(new EntityChangedEvent(EntityChangedEvent.CHANGED, EntityChangedEvent.REGISTER,
+                "*", id, null));
+        return result;
     }
 
     @GetMapping("/{name}/{id}/posting-preview")
@@ -225,9 +234,12 @@ public class GenericDocumentController {
         access.requireWrite(principal, desc);
         DocumentObject doc = loadDocumentObject(desc, id);
         postingService.unpost(doc);
-        eventPublisher.publish("unposted", "document", desc.logicalName(), id);
-        eventPublisher.publish("changed", "register", "*", id);
-        return query.get(desc, id);
+        Map<String, Object> result = query.get(desc, id);
+        events.publishEvent(new EntityChangedEvent(EntityChangedEvent.UNPOSTED, EntityChangedEvent.DOCUMENT,
+                desc.logicalName(), id, naturalKey(result)));
+        events.publishEvent(new EntityChangedEvent(EntityChangedEvent.CHANGED, EntityChangedEvent.REGISTER,
+                "*", id, null));
+        return result;
     }
 
     @SuppressWarnings("unchecked")
@@ -423,12 +435,25 @@ public class GenericDocumentController {
             postingService.unpost(doc);
         }
 
+        String number = jdbi.withHandle(h ->
+                h.createQuery("SELECT _number FROM " + desc.tableName() + " WHERE _id = :id")
+                        .bind("id", id)
+                        .mapTo(String.class)
+                        .findOne()
+                        .orElse(null));
         jdbi.useHandle(h ->
                 h.createUpdate("UPDATE " + desc.tableName() + " SET _deletion_mark = true WHERE _id = :id")
                         .bind("id", id)
                         .execute()
         );
-        eventPublisher.publish("deleted", "document", desc.logicalName(), id);
+        events.publishEvent(new EntityChangedEvent(EntityChangedEvent.DELETED, EntityChangedEvent.DOCUMENT,
+                desc.logicalName(), id, number));
+    }
+
+    /** Natural key for a document row is its number (the slug used to address the resource). */
+    private static String naturalKey(Map<String, Object> row) {
+        Object number = row.get("_number");
+        return number == null ? null : number.toString();
     }
 
     @SuppressWarnings("unchecked")
