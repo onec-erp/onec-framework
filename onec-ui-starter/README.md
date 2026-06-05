@@ -100,6 +100,19 @@ data-bearing surfaces.
 > bean declares it for the active profile. A surface with no matching view returns `404`, even when
 > the underlying REST endpoint would serve it.
 
+### List row actions
+
+Every list row (DivKit-rendered lists and the virtualized `EntityListWidget` alike) supports:
+
+- **Right-click** → a context menu with **Open**, **Edit**, **Duplicate** and **Delete**.
+- **Delete key** (macOS **fn+Backspace**, or the dedicated Del key) → deletes the row **under the
+  pointer** — the one the hover highlight marks. Ignored while typing in a field or while a menu or
+  dialog is open.
+
+Both delete paths open the in-app confirmation dialog and then issue `DELETE /api/{kind}/{name}/{id}`
+(soft delete), so the server still enforces write access — a read-only user (or one without the
+entity's write role) gets a `403`, never a silent delete.
+
 ## Dashboard widgets
 
 Widgets are authored on a `Page` (or `layout.widget(...)`) with the `WidgetBuilder` DSL and
