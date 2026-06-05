@@ -125,6 +125,8 @@ public class ResolvedMetadataService {
         // wide built-in column size itself like any custom attribute; blank = auto-fit.
         map.put("widthHint", hint == null ? "" : pick(hint.width(), ""));
         map.put("placeholder", hint == null ? "" : pick(hint.placeholder(), ""));
+        // Display format (e.g. a date pattern on the _date column): list + detail rendering.
+        map.put("format", hint == null ? "" : pick(hint.format(), ""));
         return map;
     }
 
@@ -163,6 +165,8 @@ public class ResolvedMetadataService {
             map.put("group", pick(hint == null ? null : hint.group(), a.group()));
             map.put("widthHint", pick(hint == null ? null : hint.width(), a.widthHint()));
             map.put("widget", pick(hint == null ? null : hint.widget(), a.widget()));
+            // Display format for list/detail cells (date pattern or number spec); DSL-only hint.
+            map.put("format", pick(hint == null ? null : hint.format(), ""));
             // Edit-form placeholder (UI hint only) + the declarative validation constraints the
             // client mirrors for instant inline errors. Bounds are emitted only when set.
             map.put("placeholder", pick(hint == null ? null : hint.placeholder(), ""));
