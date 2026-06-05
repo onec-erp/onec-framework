@@ -1,6 +1,6 @@
 # onec-framework
 
-Reusable Spring Boot starters for building oneC-style business applications in Java.
+Reusable Spring Boot starters for building onec-style business applications in Java.
 
 The repository is a Gradle multi-module build. Applications usually consume one or more published artifacts rather than including this repository as a composite build.
 
@@ -148,3 +148,17 @@ pluginManagement {
 Each starter exposes its auto-configuration through Spring Boot 3's `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` mechanism. In a consuming app, adding the starter dependency is enough to make its conditional beans available.
 
 Most integration starters are disabled by default and are enabled through `onec.*` configuration properties. See the module READMEs for integration-specific setup.
+
+## License
+
+The framework follows an **open-core** model.
+
+- The modules published under the `com.onec` group in this repository are open source under the
+  [Apache License 2.0](LICENSE). See [`NOTICE`](NOTICE) for attribution.
+- Separately licensed **commercial** modules (published under the `com.onec.enterprise` group from a
+  private repository — e.g. enterprise SSO/OIDC auth, and vertical connectors such as Guesty and
+  SES.HOSPEDAJES) are governed by the [onec Commercial License](docs/licensing/COMMERCIAL-LICENSE.md)
+  and are not part of this distribution.
+
+The boundary, and the plan for extracting the commercial modules into their own repository, is
+documented in [docs/licensing/MODULE-SPLIT-PLAN.md](docs/licensing/MODULE-SPLIT-PLAN.md).

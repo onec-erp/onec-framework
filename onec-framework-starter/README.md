@@ -1,8 +1,8 @@
 # onec-framework-starter
 
-Core Spring Boot auto-configuration for the **oneC** framework — a 1C-style ERP toolkit on
+Core Spring Boot auto-configuration for the **onec** framework — a 1C-style ERP toolkit on
 Spring Boot, Spring Data JDBC and JDBI. This starter is what turns a plain `@SpringBootApplication`
-with a `DataSource` into a running oneC application: it scans your **catalogs**, **documents**,
+with a `DataSource` into a running onec application: it scans your **catalogs**, **documents**,
 **registers**, **enumerations** and **constants**, generates/migrates their schema on startup, and
 wires the repositories, posting engine, numbering, lifecycle callbacks, outbox and background jobs.
 
@@ -35,7 +35,7 @@ This is the only property the starter exposes. Everything else is derived from y
 `AutoConfiguration.imports` registers two classes:
 
 - **`OnecAutoConfiguration`** — the heart of the wiring. It extends `AbstractJdbcConfiguration`,
-  registers the oneC `NamingStrategy` and mapping context, and exposes:
+  registers the onec `NamingStrategy` and mapping context, and exposes:
   - `Jdbi` (built from the `DataSource`), `MetadataRegistry`, `RefResolver`
   - `SchemaInitializer` (see below)
   - the lifecycle callbacks (`OnecBeforeConvertCallback`, `OnecAfterSaveCallback`,

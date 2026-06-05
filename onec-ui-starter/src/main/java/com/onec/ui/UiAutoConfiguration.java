@@ -63,7 +63,7 @@ public class UiAutoConfiguration implements WebMvcConfigurer {
 
     @Bean
     @org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-    public OnecValidationExceptionHandler oneCValidationExceptionHandler() {
+    public OnecValidationExceptionHandler onecValidationExceptionHandler() {
         return new OnecValidationExceptionHandler();
     }
 

@@ -1,6 +1,6 @@
 # onec-mail-starter
 
-Spring Boot starter for transactional email in a oneC application. It renders Thymeleaf templates
+Spring Boot starter for transactional email in a onec application. It renders Thymeleaf templates
 declared on your domain classes, dispatches them through a pluggable provider (SMTP, a universal HTTP
 REST adapter, or dev-only log/file sinks), and — when a `DataSource` is present — durably queues mail
 in an outbox that a scheduled relay drains with retry/backoff and per-recipient suppression.
@@ -29,7 +29,7 @@ spring:
 
 onec:
   mail:
-    default-from: "oneC <no-reply@example.com>"
+    default-from: "onec <no-reply@example.com>"
 ```
 
 That exposes `MailService`, a `MailTemplateRegistry` (populated by scanning your base packages for

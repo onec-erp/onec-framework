@@ -34,14 +34,14 @@ import java.util.stream.Collectors;
 public class OnecAutoConfiguration extends AbstractJdbcConfiguration {
 
     @org.springframework.beans.factory.annotation.Autowired
-    private OnecProperties oneCProperties;
+    private OnecProperties onecProperties;
 
     @org.springframework.beans.factory.annotation.Autowired
     private ApplicationContext bootstrapContext;
 
     @Bean
-    public NamingStrategy oneCNamingStrategy() {
-        return new OnecNamingStrategy(buildTabularSectionTables(resolvePackages(oneCProperties, bootstrapContext)));
+    public NamingStrategy onecNamingStrategy() {
+        return new OnecNamingStrategy(buildTabularSectionTables(resolvePackages(onecProperties, bootstrapContext)));
     }
 
     /**
@@ -64,8 +64,8 @@ public class OnecAutoConfiguration extends AbstractJdbcConfiguration {
     @Override
     protected java.util.List<?> userConverters() {
         java.util.List<String> packages;
-        if (oneCProperties != null && oneCProperties.getScanPackages() != null && !oneCProperties.getScanPackages().isEmpty()) {
-            packages = oneCProperties.getScanPackages();
+        if (onecProperties != null && onecProperties.getScanPackages() != null && !onecProperties.getScanPackages().isEmpty()) {
+            packages = onecProperties.getScanPackages();
         } else if (bootstrapContext != null) {
             packages = AutoConfigurationPackages.get(bootstrapContext);
         } else {
@@ -130,7 +130,7 @@ public class OnecAutoConfiguration extends AbstractJdbcConfiguration {
     }
 
     @Bean
-    public OnecBeforeConvertCallback oneCBeforeConvertCallback(MetadataRegistry registry,
+    public OnecBeforeConvertCallback onecBeforeConvertCallback(MetadataRegistry registry,
                                                                 com.onec.numbering.NumberGenerator numberGenerator,
                                                                 com.onec.security.SecretCipher secretCipher) {
         return new OnecBeforeConvertCallback(registry, numberGenerator, secretCipher);
@@ -150,20 +150,20 @@ public class OnecAutoConfiguration extends AbstractJdbcConfiguration {
     }
 
     @Bean
-    public OnecAfterSaveCallback oneCAfterSaveCallback(OutboxWriter outboxWriter, MetadataRegistry registry,
+    public OnecAfterSaveCallback onecAfterSaveCallback(OutboxWriter outboxWriter, MetadataRegistry registry,
                                                        com.onec.security.SecretCipher secretCipher,
                                                        com.onec.events.EntityChangePublisher entityChangePublisher) {
         return new OnecAfterSaveCallback(outboxWriter, registry, secretCipher, entityChangePublisher);
     }
 
     @Bean
-    public OnecAfterConvertCallback oneCAfterConvertCallback(MetadataRegistry registry,
+    public OnecAfterConvertCallback onecAfterConvertCallback(MetadataRegistry registry,
                                                              com.onec.security.SecretCipher secretCipher) {
         return new OnecAfterConvertCallback(registry, secretCipher);
     }
 
     @Bean
-    public OnecBeforeDeleteCallback oneCBeforeDeleteCallback(OutboxWriter outboxWriter, MetadataRegistry registry,
+    public OnecBeforeDeleteCallback onecBeforeDeleteCallback(OutboxWriter outboxWriter, MetadataRegistry registry,
                                                              com.onec.events.EntityChangePublisher entityChangePublisher) {
         return new OnecBeforeDeleteCallback(outboxWriter, registry, entityChangePublisher);
     }

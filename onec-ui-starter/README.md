@@ -1,6 +1,6 @@
 # onec-ui-starter
 
-Spring Boot starter that serves the oneC admin / back-office UI. It bundles a React SPA (built with
+Spring Boot starter that serves the onec admin / back-office UI. It bundles a React SPA (built with
 Node 20 by Gradle) and exposes a generic REST + **DivKit** (server-driven UI) layer over the
 business model: catalogs, documents and registers get list/detail/form screens generated from
 metadata, with no per-entity controller to write.

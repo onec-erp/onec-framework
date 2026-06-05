@@ -1,12 +1,12 @@
 # onec-kafka-starter
 
-Spring Boot starter that bridges the oneC framework's transactional **outbox** to Kafka and,
+Spring Boot starter that bridges the onec framework's transactional **outbox** to Kafka and,
 optionally, consumes events back through a de-duplicating **inbox**. Domain events declared on your
 documents land in the `onec_outbox` table inside the same transaction that writes the document; this
 starter relays those rows to a Kafka topic as [CloudEvents](https://cloudevents.io/), so publishing
 is atomic with the business write.
 
-It also ships a small `RemoteRefClient` for resolving entity references against other oneC services
+It also ships a small `RemoteRefClient` for resolving entity references against other onec services
 listed in config.
 
 ## How events get into the outbox
@@ -31,7 +31,7 @@ just accumulate.
 The outbound relay auto-configures when **all** of these hold:
 
 - `spring-kafka` is on the classpath (`KafkaTemplate`), and a `KafkaTemplate<String,String>` bean exists;
-- an `OutboxWriter` bean exists (provided by the oneC framework starter);
+- an `OutboxWriter` bean exists (provided by the onec framework starter);
 - `onec.kafka.enabled` is `true` (the default — it is on unless you turn it off).
 
 ```yaml
@@ -134,7 +134,7 @@ inbox dedupes by id, but a handler can still be retried after partial work.
 
 ## RemoteRefClient
 
-For resolving an entity owned by another oneC service over HTTP. Map services in config:
+For resolving an entity owned by another onec service over HTTP. Map services in config:
 
 ```yaml
 onec:

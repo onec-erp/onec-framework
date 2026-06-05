@@ -68,7 +68,7 @@ public class OnecAuthAutoConfiguration {
      * resource-server modes that endpoint reports back that interactive password login is disabled.
      */
     @Bean
-    AuthApiController oneCAuthApiController(ObjectProvider<AuthenticationManager> authenticationManager,
+    AuthApiController onecAuthApiController(ObjectProvider<AuthenticationManager> authenticationManager,
                                             OnecAuthProperties properties) {
         return new AuthApiController(authenticationManager.getIfAvailable(), properties);
     }
@@ -80,7 +80,7 @@ public class OnecAuthAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean(AuthMethodsProvider.class)
-    AuthMethodsProvider oneCAuthMethodsProvider(
+    AuthMethodsProvider onecAuthMethodsProvider(
             OnecAuthProperties properties,
             ObjectProvider<ClientRegistrationRepository> clientRegistrations) {
         return new OnecAuthMethodsProvider(properties, clientRegistrations);
@@ -104,13 +104,13 @@ public class OnecAuthAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean
-        PasswordEncoder oneCPasswordEncoder() {
+        PasswordEncoder onecPasswordEncoder() {
             return new BCryptPasswordEncoder();
         }
 
         @Bean
         @ConditionalOnMissingBean
-        UserDetailsService oneCUserDetailsService(OnecAuthProperties properties, PasswordEncoder passwordEncoder) {
+        UserDetailsService onecUserDetailsService(OnecAuthProperties properties, PasswordEncoder passwordEncoder) {
             List<UserDetails> users = properties.getUsers().stream()
                     .map(u -> {
                         if (u.getUsername() == null || u.getPassword() == null) {
@@ -130,7 +130,7 @@ public class OnecAuthAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean
-        AuthenticationManager oneCAuthenticationManager(UserDetailsService userDetailsService,
+        AuthenticationManager onecAuthenticationManager(UserDetailsService userDetailsService,
                                                         PasswordEncoder passwordEncoder) {
             DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
             provider.setUserDetailsService(userDetailsService);
@@ -140,7 +140,7 @@ public class OnecAuthAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean(SecurityFilterChain.class)
-        SecurityFilterChain oneCSecurityFilterChain(HttpSecurity http, OnecAuthProperties properties)
+        SecurityFilterChain onecSecurityFilterChain(HttpSecurity http, OnecAuthProperties properties)
                 throws Exception {
             CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
             csrfHandler.setCsrfRequestAttributeName(null);
@@ -173,7 +173,7 @@ public class OnecAuthAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean(SecurityFilterChain.class)
-        SecurityFilterChain oneCOidcSecurityFilterChain(HttpSecurity http,
+        SecurityFilterChain onecOidcSecurityFilterChain(HttpSecurity http,
                                                         OnecAuthProperties properties,
                                                         ClientRegistrationRepository clientRegistrations)
                 throws Exception {
@@ -275,7 +275,7 @@ public class OnecAuthAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean(SecurityFilterChain.class)
-        SecurityFilterChain oneCResourceServerSecurityFilterChain(HttpSecurity http,
+        SecurityFilterChain onecResourceServerSecurityFilterChain(HttpSecurity http,
                                                                   OnecAuthProperties properties) throws Exception {
             applyApiAuthorization(http, properties);
             return http

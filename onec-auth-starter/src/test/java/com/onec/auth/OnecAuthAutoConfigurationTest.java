@@ -35,12 +35,12 @@ class OnecAuthAutoConfigurationTest {
     void defaultsToInMemoryModeAndKeepsSessionChain() {
         runner.run(context -> {
             assertThat(context).hasNotFailed();
-            assertThat(context).hasBean("oneCSecurityFilterChain");
-            assertThat(context).doesNotHaveBean("oneCOidcSecurityFilterChain");
-            assertThat(context).doesNotHaveBean("oneCResourceServerSecurityFilterChain");
+            assertThat(context).hasBean("onecSecurityFilterChain");
+            assertThat(context).doesNotHaveBean("onecOidcSecurityFilterChain");
+            assertThat(context).doesNotHaveBean("onecResourceServerSecurityFilterChain");
             assertThat(context).hasSingleBean(UserDetailsService.class);
             assertThat(context).hasSingleBean(SecurityFilterChain.class);
-            assertThat(context).hasBean("oneCAuthApiController");
+            assertThat(context).hasBean("onecAuthApiController");
             assertThat(context).hasSingleBean(AuthMethodsProvider.class);
         });
     }
@@ -51,11 +51,11 @@ class OnecAuthAutoConfigurationTest {
                 .withPropertyValues("onec.auth.mode=oidc")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
-                    assertThat(context).hasBean("oneCOidcSecurityFilterChain");
-                    assertThat(context).doesNotHaveBean("oneCSecurityFilterChain");
+                    assertThat(context).hasBean("onecOidcSecurityFilterChain");
+                    assertThat(context).doesNotHaveBean("onecSecurityFilterChain");
                     assertThat(context).doesNotHaveBean(UserDetailsService.class);
                     assertThat(context).hasSingleBean(SecurityFilterChain.class);
-                    assertThat(context).hasBean("oneCAuthApiController");
+                    assertThat(context).hasBean("onecAuthApiController");
                     assertThat(context).hasSingleBean(AuthMethodsProvider.class);
                 });
     }
@@ -66,8 +66,8 @@ class OnecAuthAutoConfigurationTest {
                 .withPropertyValues("onec.auth.mode=resource-server")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
-                    assertThat(context).hasBean("oneCResourceServerSecurityFilterChain");
-                    assertThat(context).doesNotHaveBean("oneCSecurityFilterChain");
+                    assertThat(context).hasBean("onecResourceServerSecurityFilterChain");
+                    assertThat(context).doesNotHaveBean("onecSecurityFilterChain");
                     assertThat(context).doesNotHaveBean(UserDetailsService.class);
                     assertThat(context).hasSingleBean(SecurityFilterChain.class);
                     assertThat(context).hasSingleBean(AuthMethodsProvider.class);
@@ -90,7 +90,7 @@ class OnecAuthAutoConfigurationTest {
                         "onec.auth.csrf-ignored-paths[1]=/api/public/**")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
-                    assertThat(context).hasBean("oneCSecurityFilterChain");
+                    assertThat(context).hasBean("onecSecurityFilterChain");
                     assertThat(context.getBean(OnecAuthProperties.class).getCsrfIgnoredPaths())
                             .containsExactly("/api/auth/login", "/api/public/**");
                 });
@@ -100,8 +100,8 @@ class OnecAuthAutoConfigurationTest {
     void disablingTheStarterContributesNoChain() {
         runner.withPropertyValues("onec.auth.enabled=false").run(context -> {
             assertThat(context).hasNotFailed();
-            assertThat(context).doesNotHaveBean("oneCSecurityFilterChain");
-            assertThat(context).doesNotHaveBean("oneCAuthApiController");
+            assertThat(context).doesNotHaveBean("onecSecurityFilterChain");
+            assertThat(context).doesNotHaveBean("onecAuthApiController");
             assertThat(context).doesNotHaveBean(AuthMethodsProvider.class);
         });
     }

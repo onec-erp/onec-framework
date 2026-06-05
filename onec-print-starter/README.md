@@ -1,6 +1,6 @@
 # onec-print-starter
 
-Spring Boot starter that renders printable forms for oneC documents and catalogs. A class declares one
+Spring Boot starter that renders printable forms for onec documents and catalogs. A class declares one
 or more print templates with the `@PrintTemplate` annotation; the `PrintService` renders a given
 instance of that class to **HTML** or **PDF** bytes.
 

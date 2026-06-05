@@ -146,7 +146,7 @@ class TabularSectionRepositoryIT {
         }
 
         @Bean
-        NamingStrategy oneCNamingStrategy(MetadataRegistry registry) {
+        NamingStrategy onecNamingStrategy(MetadataRegistry registry) {
             Map<Class<?>, String> tabularTables = new HashMap<>();
             for (DocumentDescriptor doc : registry.allDocuments()) {
                 for (TabularSectionDescriptor ts : doc.tabularSections()) {
@@ -187,19 +187,19 @@ class TabularSectionRepositoryIT {
         }
 
         @Bean
-        OnecBeforeConvertCallback oneCBeforeConvertCallback(MetadataRegistry registry,
+        OnecBeforeConvertCallback onecBeforeConvertCallback(MetadataRegistry registry,
                                                             NumberGenerator numberGenerator,
                                                             SecretCipher secretCipher) {
             return new OnecBeforeConvertCallback(registry, numberGenerator, secretCipher);
         }
 
         @Bean
-        OnecAfterConvertCallback oneCAfterConvertCallback(MetadataRegistry registry, SecretCipher secretCipher) {
+        OnecAfterConvertCallback onecAfterConvertCallback(MetadataRegistry registry, SecretCipher secretCipher) {
             return new OnecAfterConvertCallback(registry, secretCipher);
         }
 
         @Bean
-        OnecAfterSaveCallback oneCAfterSaveCallback(MetadataRegistry registry, SecretCipher secretCipher) {
+        OnecAfterSaveCallback onecAfterSaveCallback(MetadataRegistry registry, SecretCipher secretCipher) {
             return new OnecAfterSaveCallback(null, registry, secretCipher);
         }
 

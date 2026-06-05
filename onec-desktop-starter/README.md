@@ -1,6 +1,6 @@
 # onec-desktop-starter
 
-Spring Boot starter that runs a oneC web application as a **native desktop app**. The app keeps
+Spring Boot starter that runs a onec web application as a **native desktop app**. The app keeps
 running as a normal embedded Spring Boot server; a generic **Tauri** shell launches that server,
 waits for it to come up, then draws a native window pointed at the local UI. Window appearance is
 declared once in Java (config-as-code) rather than in a hand-edited `tauri.conf.json`.

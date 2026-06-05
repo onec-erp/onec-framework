@@ -1,6 +1,6 @@
 # onec-auth-starter
 
-Spring Boot (Spring Security) starter that secures a oneC application's HTTP API. It contributes a
+Spring Boot (Spring Security) starter that secures a onec application's HTTP API. It contributes a
 `SecurityFilterChain`, a small JSON auth API (`/api/auth/*`), and — depending on the selected mode —
 an in-memory user store, server-side Keycloak (OIDC) login, or stateless JWT validation.
 
