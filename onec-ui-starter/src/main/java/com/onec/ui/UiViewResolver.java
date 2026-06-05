@@ -89,7 +89,8 @@ public class UiViewResolver {
                     continue;
                 }
                 columns.add(new ResolvedListView.Column(
-                        spec.labels().getOrDefault(field, cm.label()), cm.columnName(), cm.width()));
+                        spec.labels().getOrDefault(field, cm.label()), cm.columnName(), cm.width(),
+                        cm.widget(), cm.format()));
             }
         } else {
             // Default: visible columns in configured order, minus any hidden, with label overrides.
@@ -99,7 +100,8 @@ public class UiViewResolver {
                     .sorted(Comparator.comparingInt(e -> e.getValue().order()))
                     .forEach(e -> columns.add(new ResolvedListView.Column(
                             spec.labels().getOrDefault(e.getKey(), e.getValue().label()),
-                            e.getValue().columnName(), e.getValue().width())));
+                            e.getValue().columnName(), e.getValue().width(),
+                            e.getValue().widget(), e.getValue().format())));
         }
 
         // An authored view title wins; otherwise the entity's display title (which itself
@@ -112,14 +114,15 @@ public class UiViewResolver {
         return new ResolvedListView(title, columns, spec.searchable(), sortColumn, spec.sortDescending());
     }
 
-    private record ColumnMeta(String label, String columnName, boolean visibleInList, int order, String width) {
+    private record ColumnMeta(String label, String columnName, boolean visibleInList, int order,
+                              String width, String widget, String format) {
         static ColumnMeta of(Map<String, Object> m) {
             Object order = m.get("order");
             return new ColumnMeta(
                     str(m.get("displayName")), str(m.get("columnName")),
                     Boolean.TRUE.equals(m.get("visibleInList")),
                     order == null ? 0 : ((Number) order).intValue(),
-                    str(m.get("widthHint")));
+                    str(m.get("widthHint")), str(m.get("widget")), str(m.get("format")));
         }
     }
 
