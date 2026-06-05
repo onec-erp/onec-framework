@@ -13,6 +13,7 @@ import { DatePicker } from "@/components/date-picker";
 import { DynamicLucide } from "@/lib/icon-bridge";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { applyFormat, isImageWidget, isAvatarWidget, looksLikeImageUrl } from "@/lib/cell-format";
 import type { EntityRecord, UiEvent } from "@/lib/types";
 
 /**
@@ -23,7 +24,15 @@ import type { EntityRecord, UiEvent } from "@/lib/types";
  * {@code data-onec-row} so the existing right-click Open/Edit/Duplicate menu keeps working.
  */
 
-export type ListColumn = { columnName: string; label: string; width: string };
+export type ListColumn = {
+  columnName: string;
+  label: string;
+  width: string;
+  /** Display hint: "image"/"avatar" renders the cell value as a thumbnail. */
+  widget?: string;
+  /** Display format: a date pattern ("dd-MM-yy") or number spec ("currency:EUR", "integer", …). */
+  format?: string;
+};
 /**
  * A custom action button declared by an EntityView. {@code scope} is "toolbar" (list-level) or
  * "row" (per-record); a {@code server} action POSTs to /api/actions and applies the returned
@@ -74,14 +83,40 @@ function dispatchAction(url: string) {
   window.dispatchEvent(new CustomEvent("onec:action", { detail: url }));
 }
 
-function cellValue(row: EntityRecord, col: ListColumn): string {
+/** The underlying cell string: a resolved ref/enum label, the posted badge, or the raw value. */
+function rawCellValue(row: EntityRecord, col: ListColumn): string {
   if (col.columnName === "_posted") return row["_posted"] === true ? "Posted" : "Draft";
   const v = row[`${col.columnName}_display`] ?? row[col.columnName];
-  if (v == null) return "";
-  const s = String(v);
-  if (s.startsWith("data:")) return "🖼 Image";
-  if (s === "__SECRET_SET__") return "•••• set";
-  return s;
+  return v == null ? "" : String(v);
+}
+
+/** The displayed text: secret mask, image placeholder, or the value run through .format(...). */
+function displayCellValue(raw: string, col: ListColumn): string {
+  if (raw === "__SECRET_SET__") return "•••• set";
+  if (raw.startsWith("data:")) return "🖼 Image"; // a non-image column keeps the placeholder
+  return applyFormat(raw, col.format) ?? raw;
+}
+
+/** One list cell: an image thumbnail for image/avatar columns, otherwise formatted text. */
+function ListCell({ row, col }: { row: EntityRecord; col: ListColumn }) {
+  const raw = rawCellValue(row, col);
+  if (isImageWidget(col.widget) && raw && looksLikeImageUrl(raw)) {
+    const avatar = isAvatarWidget(col.widget);
+    return (
+      <span className="flex items-center">
+        <img
+          src={raw}
+          alt=""
+          loading="lazy"
+          className={cn(
+            "h-7 shrink-0 border border-border object-cover",
+            avatar ? "w-7 rounded-full" : "w-10 rounded"
+          )}
+        />
+      </span>
+    );
+  }
+  return <span className="truncate text-foreground">{displayCellValue(raw, col)}</span>;
 }
 
 // Mirror of the server's snake-casing so an SSE event's entity name matches the route name.
@@ -496,11 +531,7 @@ export function EntityListWidget({ list }: { list: ListDescriptor }) {
                     style={{ top: i * ROW_H, height: ROW_H, gridTemplateColumns: template }}
                   >
                     {row
-                      ? columns.map((c) => (
-                          <span key={c.columnName} className="truncate text-foreground">
-                            {cellValue(row, c)}
-                          </span>
-                        ))
+                      ? columns.map((c) => <ListCell key={c.columnName} row={row} col={c} />)
                       : columns.map((c) => (
                           <span key={c.columnName} className="h-3.5 w-2/3 animate-pulse rounded bg-muted" />
                         ))}

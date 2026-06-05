@@ -53,6 +53,10 @@ public final class SurfaceDivBuilder {
             col.put("columnName", c.columnName());
             col.put("label", c.label());
             col.put("width", c.width() == null ? "" : c.width());
+            // Display hints the React list honors: an image/avatar widget renders a thumbnail, and
+            // a format string reformats dates/numbers in the cell.
+            col.put("widget", c.widget() == null ? "" : c.widget());
+            col.put("format", c.format() == null ? "" : c.format());
             columns.add(col);
         }
         Map<String, Object> sort = new LinkedHashMap<>();
@@ -187,7 +191,9 @@ public final class SurfaceDivBuilder {
         items.add(detailHeader(titleOf(meta), str(row.get("_number")), badge, actions, p));
 
         List<Map<String, Object>> fieldRows = new ArrayList<>();
-        fieldRows.add(Components.fieldRow("Date", str(row.get("_date")), p));
+        // The header date honors a .field("date").format(...) hint, like any other column.
+        String dateText = ValueFormat.apply(systemColumnFormat(meta, "_date"), row.get("_date"));
+        fieldRows.add(Components.fieldRow("Date", dateText != null ? dateText : str(row.get("_date")), p));
         for (Map<String, Object> a : visible(
                 (List<Map<String, Object>>) meta.getOrDefault("attributes", List.of()), "visibleInDetail")) {
             fieldRows.add(fieldRowFor(a, row, p));
@@ -508,11 +514,28 @@ public final class SurfaceDivBuilder {
                 .toList();
     }
 
+    /** The display {@code format} hint declared for a system column (e.g. {@code _date}), or "". */
+    @SuppressWarnings("unchecked")
+    private static String systemColumnFormat(Map<String, Object> meta, String columnName) {
+        for (Map<String, Object> sc : (List<Map<String, Object>>) meta.getOrDefault("systemColumns", List.of())) {
+            if (columnName.equals(str(sc.get("columnName")))) {
+                return str(sc.get("format"));
+            }
+        }
+        return "";
+    }
+
     private static String cell(Map<String, Object> attr, Map<String, Object> row) {
         String col = str(attr.get("columnName"));
         Object display = row.get(col + "_display");
-        Object value = display != null ? display : row.get(col);
-        return maskSecret(value);
+        // A resolved ref/enum label is shown as-is; only a raw typed value is run through the
+        // optional .format(...) hint (a date pattern or number spec).
+        if (display != null) {
+            return maskSecret(display);
+        }
+        Object value = row.get(col);
+        String formatted = ValueFormat.apply(str(attr.get("format")), value);
+        return formatted != null ? formatted : maskSecret(value);
     }
 
     /**

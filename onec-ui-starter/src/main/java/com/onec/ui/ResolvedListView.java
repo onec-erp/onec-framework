@@ -16,9 +16,16 @@ public record ResolvedListView(String title, List<Column> columns,
     }
 
     /**
-     * A resolved column: the header label, the data column it reads, and an optional
-     * width hint (e.g. {@code "260"} px, from {@code .field(...).width(...)}). A blank
-     * width means "size the column to its content" — see the DivKit emitter.
+     * A resolved column: the header label, the data column it reads, an optional width hint
+     * (e.g. {@code "260"} px, from {@code .field(...).width(...)}; blank = size to content), and
+     * the display hints carried over from the attribute — {@code widget} (so a list cell can
+     * render an image thumbnail) and {@code format} (a date pattern or number spec applied to the
+     * cell value). Both default to blank.
      */
-    public record Column(String label, String columnName, String width) {}
+    public record Column(String label, String columnName, String width, String widget, String format) {
+        /** Back-compat: a column with no display widget/format hints. */
+        public Column(String label, String columnName, String width) {
+            this(label, columnName, width, "", "");
+        }
+    }
 }

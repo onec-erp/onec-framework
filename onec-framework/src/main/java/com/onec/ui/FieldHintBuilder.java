@@ -21,6 +21,7 @@ public class FieldHintBuilder {
     private String width;
     private String widget;
     private String placeholder;
+    private String format;
 
     FieldHintBuilder(EntityConfigBuilder parent, String fieldName) {
         this.parent = parent;
@@ -50,6 +51,23 @@ public class FieldHintBuilder {
     /** Placeholder text shown in this field's empty input on the edit form. */
     public FieldHintBuilder placeholder(String placeholder) {
         this.placeholder = placeholder;
+        return this;
+    }
+
+    /**
+     * How this field's value is displayed in tables (list) and the detail surface. The hint is
+     * interpreted by value type:
+     * <ul>
+     *   <li><b>Dates / date-times</b> — a date pattern, e.g. {@code "dd-MM-yy"},
+     *       {@code "dd/MM/yyyy HH:mm"} (uppercase {@code D}/{@code Y} are accepted as day/year).</li>
+     *   <li><b>Numbers</b> — {@code "integer"}, {@code "decimal"}, {@code "percent"},
+     *       {@code "currency"} (or {@code "currency:EUR"}), or a decimal pattern like
+     *       {@code "#,##0.00"}.</li>
+     * </ul>
+     * It does not affect the edit form's input control (use {@link #widget(String)} for that).
+     */
+    public FieldHintBuilder format(String format) {
+        this.format = format;
         return this;
     }
 
@@ -95,6 +113,6 @@ public class FieldHintBuilder {
     FieldHint build() {
         return new FieldHint(
                 visibleInList, visibleInForm, visibleInDetail,
-                order, group, width, widget, placeholder);
+                order, group, width, widget, placeholder, format);
     }
 }
