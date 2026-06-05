@@ -2,6 +2,14 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { ArrowDown, ArrowUp, ChevronsUpDown, Loader2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DatePicker } from "@/components/date-picker";
 import { DynamicLucide } from "@/lib/icon-bridge";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -58,6 +66,9 @@ export type ListDescriptor = {
 
 const ROW_H = 40;
 const OVERSCAN = 8;
+// Radix Select forbids an empty-string item value, so the "no selection" / placeholder choice
+// uses this sentinel and is mapped back to "" in state.
+const SELECT_NONE = "__onec_none__";
 
 function dispatchAction(url: string) {
   window.dispatchEvent(new CustomEvent("onec:action", { detail: url }));
@@ -311,21 +322,34 @@ export function EntityListWidget({ list }: { list: ListDescriptor }) {
             <label key={inp.key} className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
               <span className="whitespace-nowrap">{inp.label}</span>
               {inp.type === "select" ? (
-                <select
+                <Select
                   value={inputValues[inp.key] ?? ""}
-                  onChange={(e) => setInputValues((v) => ({ ...v, [inp.key]: e.target.value }))}
-                  className="h-9 rounded-lg border border-input bg-background px-2 text-sm text-foreground"
+                  onValueChange={(val) =>
+                    setInputValues((v) => ({ ...v, [inp.key]: val === SELECT_NONE ? "" : val }))
+                  }
                 >
-                  {inp.placeholder ? <option value="">{inp.placeholder}</option> : null}
-                  {inp.options.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="h-9 w-36">
+                    <SelectValue placeholder={inp.placeholder || inp.label} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {inp.placeholder ? <SelectItem value={SELECT_NONE}>{inp.placeholder}</SelectItem> : null}
+                    {inp.options.map((o) => (
+                      <SelectItem key={o} value={o}>
+                        {o}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : inp.type === "date" ? (
+                <div className="w-40">
+                  <DatePicker
+                    value={inputValues[inp.key] || undefined}
+                    onChange={(val) => setInputValues((v) => ({ ...v, [inp.key]: val }))}
+                  />
+                </div>
               ) : (
                 <Input
-                  type={inp.type === "date" ? "date" : inp.type === "number" ? "number" : "text"}
+                  type={inp.type === "number" ? "number" : "text"}
                   value={inputValues[inp.key] ?? ""}
                   onChange={(e) => setInputValues((v) => ({ ...v, [inp.key]: e.target.value }))}
                   placeholder={inp.placeholder}
