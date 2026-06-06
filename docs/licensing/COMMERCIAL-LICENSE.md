@@ -5,9 +5,10 @@
 > open-core model: the Apache-2.0 core stays free; the modules below are licensed, not sold.
 
 **SPDX identifier:** `LicenseRef-onec-Commercial`
-**Applies to:** modules published under the `com.onec.enterprise` group —
-`onec-enterprise-auth-starter`, `onec-guesty-starter`, `onec-hospedajes-starter`, and
-future commercial modules. It does **not** apply to any `com.onec` (Apache-2.0) artifact.
+**Applies to:** modules published under the `com.onec.enterprise` group — `onec-guesty-starter`,
+`onec-hospedajes-starter`, and future commercial modules. It does **not** apply to any `com.onec`
+(Apache-2.0) artifact. Authentication, including OIDC / single sign-on (`onec-auth-starter`), is
+part of the open-source core and is **not** covered by this license.
 
 ---
 
@@ -19,14 +20,14 @@ Subscription term**, up to the entitlements in Your Order (e.g. number of deploy
 tenants, or named seats).
 
 ## 2. Source availability (choose one model)
-- **Option A — Closed (recommended for connectors + SSO).** Object (JAR) only. No source.
+- **Option A — Closed (recommended for connectors).** Object (JAR) only. No source.
 - **Option B — Source-available (BSL-style).** You receive source and may read/modify it for
   Your own use, but may **not** offer the Licensed Modules (or a derivative) to third
   parties as a hosted or managed service that competes with onec. Each release converts to
   Apache-2.0 on the fourth anniversary of its publication ("Change Date").
 
-> Recommendation: ship **guesty/hospedajes/enterprise-auth as Option A**. Reserve Option B
-> for a future "agent builder" module where community trust/inspection matters more.
+> Recommendation: ship **guesty/hospedajes as Option A**. Reserve Option B for a future
+> "agent builder" module where community trust/inspection matters more.
 
 ## 3. Restrictions
 You may not: (a) redistribute, resell, or sublicense the Licensed Modules; (b) remove or
@@ -63,7 +64,7 @@ its own license. Nothing here restricts Your rights under those licenses.
 ## Suggested commercial packaging (sketch — pairs with the licensing memo)
 | Tier | Who | Includes | Rough model |
 |------|-----|----------|-------------|
-| **Community** | Everyone | Apache-2.0 core + free auth/ui/mcp/print/mail/kafka | Free |
+| **Community** | Everyone | Apache-2.0 core + free auth (incl. OIDC/SSO) / ui / mcp / print / mail / kafka | Free |
 | **Connectors** | Teams needing a vertical | guesty / hospedajes / future connectors | Per-deployment / annual |
-| **Enterprise** | Orgs needing SSO, audit, multi-tenancy | enterprise-auth (OIDC/SSO) + future multi-tenancy | Per-seat or per-tenant / annual |
+| **Enterprise** | Orgs needing audit, multi-tenancy | future audit + multi-tenancy modules | Per-seat or per-tenant / annual |
 | **Cloud** | Don't want to self-host | Hosted, all of the above | Per-tenant + per-seat / monthly |

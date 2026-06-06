@@ -10,13 +10,17 @@ published Maven artifacts.
 |--------|-------|-------------|------------|
 | `onec-guesty-starter` | this repo, leaf (deps: framework, framework-starter) | `onec-enterprise` | **Easy** — clean leaf, no in-repo consumers |
 | `onec-hospedajes-starter` | this repo, leaf | `onec-enterprise` | **Easy** — only `example` consumes it |
-| `onec-enterprise-auth-starter` | *does not exist yet* — must be **split out** of `onec-auth-starter` | `onec-enterprise` | **Medium** — code refactor, not a move |
-| `onec-auth-starter` (free half) | this repo | **stays** | — |
-| `example` (rentals showcase) | this repo, depends on hospedajes | becomes slim OSS demo; full rentals demo moves | **Easy** |
+| `onec-auth-starter` (incl. OIDC/SSO) | this repo | **stays open source** | — |
+| `example` (hospedajes integration) | this repo, depends on hospedajes | OSS demo drops the vertical integration | **Easy** |
+
+> **Scope note:** authentication — including OIDC / single sign-on and the resource-server mode —
+> stays entirely in the open-source `onec-auth-starter`. An earlier draft of this plan proposed
+> carving an `onec-enterprise-auth-starter` out of it; that was **descoped**. Only the vertical
+> connectors (Guesty, SES.HOSPEDAJES) are commercial.
 
 Net result: this repo's `settings.gradle.kts` drops `onec-guesty-starter` and
-`onec-hospedajes-starter`; `onec-auth-starter` loses its OIDC code; `example` drops the
-`:onec-hospedajes-starter` dependency.
+`onec-hospedajes-starter`; the `example` drops its `:onec-hospedajes-starter` dependency and the
+`com.example.integration.hospedajes` package. `onec-auth-starter` is unchanged.
 
 ---
 
@@ -33,7 +37,7 @@ boundary real.
                                                                          │ consumed as a normal dependency
                                                                          ▼
   onec-enterprise ──────────────────────────────────────────►  com.onec.enterprise:onec-guesty-starter:0.2.0
-   (Commercial)    publish (PRIVATE registry / licensed access)  com.onec.enterprise:onec-enterprise-auth-starter:0.2.0
+   (Commercial)    publish (PRIVATE registry / licensed access)  com.onec.enterprise:onec-hospedajes-starter:0.2.0
 ```
 
 - OSS modules keep `group = "com.onec"`.
@@ -93,39 +97,21 @@ Per module:
 3. In **this repo**: remove the two `include(...)` lines from `settings.gradle.kts` and delete
    the directories.
 
-## Phase 3 — Split `onec-auth-starter` (the refactor)
-`onec-auth-starter` currently bundles free + enterprise auth in one module. Split along the
-`onec.auth.mode` seam:
-
-**Stays in OSS `onec-auth-starter`:**
-- `OnecAuthProperties`, `OnecAuthMethodsProvider`, `AuthApiController`, `CsrfCookieFilter`,
-  `JsonAuthenticationEntryPoint`, and the base `OnecAuthAutoConfiguration` for
-  in-memory/session/form/JSON login.
-- Keep the `com.onec.auth.spi` contract in `onec-framework` (the UI module depends on it) —
-  **do not move the SPI**, or you break `onec-ui-starter`.
-- Drop the `oauth2-client` / `oauth2-resource-server` dependencies from this module.
-
-**Moves to commercial `onec-enterprise-auth-starter`:**
-- `ClaimRoleConverter` (claim→role mapping) and any OIDC/resource-server config.
-- A new `OnecEnterpriseAuthAutoConfiguration` that activates on `onec.auth.mode in
-  {oidc, resource-server}` and brings the `spring-boot-starter-oauth2-*` deps.
-- Its own `META-INF/spring/...AutoConfiguration.imports`.
-
-**Refactor work:** extract the OIDC `@Bean`s out of `OnecAuthAutoConfiguration` into the new
-auto-config, gated by `@ConditionalOnProperty(name = "onec.auth.mode", havingValue = "oidc")`
-etc., so the free module compiles and runs with zero oauth2 jars on the classpath. Add a
-contract test in OSS asserting the in-memory mode boots without the enterprise jar.
-
-> This is the one piece that needs real code changes + tests. I can do this split as a
-> follow-up PR if you want.
+## Phase 3 — Authentication stays open source (descoped)
+An earlier draft carved an `onec-enterprise-auth-starter` (OIDC / resource-server) out of
+`onec-auth-starter`. **That split was descoped** — all authentication, including OIDC / single
+sign-on and the stateless resource-server mode, remains in the open-source `onec-auth-starter`.
+No auth code moves; nothing to do here.
 
 ## Phase 4 — Fix the example
-`example` depends on `:onec-hospedajes-starter` ([example/build.gradle.kts:16](../../example/build.gradle.kts)).
-- **OSS `example`:** remove the hospedajes dependency; keep it a pure-core demo (framework,
-  ui, auth, mcp, print, mail, desktop). This is your public "hello world ERP".
-- **Full rentals showcase** (hospedajes + guesty + enterprise-auth + Tauri desktop bundle):
-  recreate as `rentals-example` inside `onec-enterprise`. That becomes the sales demo and the
-  reference for the "vertical solution" you sell.
+`example` depends on `:onec-hospedajes-starter` and wires it through the
+`com.example.integration.hospedajes` package.
+- **OSS `example`:** remove the hospedajes dependency, the `integration/hospedajes` package, and
+  the `onec.hospedajes.*` config block; keep it a pure-core demo (framework, ui, auth, mcp, print,
+  mail, desktop). This is the public "hello world ERP".
+- **Vertical showcase** (the hospedajes/guesty integration + Tauri desktop bundle): the integration
+  source is carried into `onec-enterprise` for reference and can be rebuilt as a `rentals-example`
+  there — the sales demo and reference "vertical solution".
 
 ## Phase 5 — CI / publishing / docs
 - `onec-enterprise` gets its own `ci.yml` + `publish-packages.yml` (pointed at the private
@@ -138,10 +124,9 @@ contract test in OSS asserting the in-memory mode boots without the enterprise j
 
 ## Order of operations (do not reorder)
 1. Phase 0 + Phase 1 — license + publish core publicly. **Blocking.**
-2. Phase 3 — split auth (while everything is still in one build, easiest to refactor + test).
-3. Phase 2 — extract guesty/hospedajes + the carved-out enterprise-auth into `onec-enterprise`.
-4. Phase 4 — slim the OSS example, rebuild the showcase in onec-enterprise.
-5. Phase 5 — CI/docs cleanup.
+2. Phase 2 — extract guesty/hospedajes into `onec-enterprise` (consuming the published core).
+3. Phase 4 — slim the OSS example, rebuild the showcase in onec-enterprise.
+4. Phase 5 — CI/docs cleanup.
 
 ## Risks / gotchas
 - **Don't move `com.onec.auth.spi`** — `onec-ui-starter` (Apache-2.0) depends on it. The SPI

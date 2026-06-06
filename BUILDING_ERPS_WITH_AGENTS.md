@@ -67,8 +67,15 @@ implementation("com.onec:onec-print-starter:0.1.0")
 implementation("com.onec:onec-mail-starter:0.1.0")
 implementation("com.onec:onec-kafka-starter:0.1.0")
 implementation("com.onec:onec-desktop-starter:0.1.0")
-implementation("com.onec:onec-guesty-starter:0.1.0")
-implementation("com.onec:onec-hospedajes-starter:0.1.0")
+```
+
+Commercial vertical connectors ship from the separately licensed
+[onec-enterprise](https://github.com/onec-erp/onec-enterprise) repository under the
+`com.onec.enterprise` group:
+
+```kotlin
+implementation("com.onec.enterprise:onec-guesty-starter:0.1.0")
+implementation("com.onec.enterprise:onec-hospedajes-starter:0.1.0")
 ```
 
 ## Minimal Application Config

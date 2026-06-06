@@ -33,9 +33,9 @@ to future agents that may not have the full conversation context.
 | `onec-kafka-starter` | Kafka/event transport helpers. |
 | `onec-desktop-starter` | Desktop runtime support and bundled Tauri shell resources. |
 | `onec-desktop-gradle-plugin` | Gradle plugin for native desktop packaging. |
-| `onec-hospedajes-starter` | SES.HOSPEDAJES integration. |
-| `onec-guesty-starter` | Guesty Open API integration. |
 | `example` | Local example app and smoke-test consumer inside the multi-module build. Do not publish it. |
+
+Commercial vertical connectors (`onec-guesty-starter`, `onec-hospedajes-starter`) are licensed separately and live in the [onec-enterprise](https://github.com/onec-erp/onec-enterprise) repo — not in this build. Authentication (including OIDC/SSO via `onec-auth-starter`) stays in the open-source core.
 
 ### Before Editing
 
@@ -610,12 +610,12 @@ which has full dependency injection:
 ```java
 @Component
 class CheckInListener {
-    private final HospedajesService hospedajes;
-    CheckInListener(HospedajesService hospedajes) { this.hospedajes = hospedajes; }
+    private final ExternalRegistry registry;   // any application bean — full DI
+    CheckInListener(ExternalRegistry registry) { this.registry = registry; }
 
     @EventListener
     void onPosted(DocumentPostedEvent event) {
-        if (event.document() instanceof CheckIn checkIn) hospedajes.registrar(checkIn);
+        if (event.document() instanceof CheckIn checkIn) registry.register(checkIn);
     }
 }
 ```

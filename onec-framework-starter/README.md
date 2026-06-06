@@ -147,13 +147,13 @@ After a post (or unpost) transaction commits, the framework publishes a Spring a
 ```java
 @Component
 class TravelerRegistrationListener {
-    private final HospedajesService hospedajes;   // any bean — full DI
-    TravelerRegistrationListener(HospedajesService hospedajes) { this.hospedajes = hospedajes; }
+    private final ExternalRegistry registry;   // any bean — full DI
+    TravelerRegistrationListener(ExternalRegistry registry) { this.registry = registry; }
 
     @EventListener
     void onPosted(DocumentPostedEvent event) {
         if (event.document() instanceof CheckIn checkIn) {
-            hospedajes.registrar(checkIn);   // runs after the post has committed
+            registry.register(checkIn);   // runs after the post has committed
         }
     }
 }

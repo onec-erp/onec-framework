@@ -23,9 +23,12 @@ reference/enum expansion, secret redaction, list vs get) and how to react to cha
 | `onec-kafka-starter` | Kafka event publishing, inbox routing, service registry, and remote reference helpers. |
 | `onec-desktop-starter` | Desktop runtime support and packaged Tauri shell resources. |
 | `onec-desktop-gradle-plugin` | Gradle plugin for packaging a Spring Boot app as a native desktop bundle. |
-| `onec-hospedajes-starter` | Spanish SES.HOSPEDAJES lodging/traveler registration client. |
-| `onec-guesty-starter` | Guesty Open API client and token management. |
 | `example` | Local example application. It is not intended to be published as a library. |
+
+Commercial vertical connectors — `onec-guesty-starter` (Guesty Open API) and
+`onec-hospedajes-starter` (Spanish SES.HOSPEDAJES) — live in the separate, commercially licensed
+[onec-enterprise](https://github.com/onec-erp/onec-enterprise) repository. See the
+[License](#license) section.
 
 ## Requirements
 
@@ -156,9 +159,10 @@ The framework follows an **open-core** model.
 - The modules published under the `com.onec` group in this repository are open source under the
   [Apache License 2.0](LICENSE). See [`NOTICE`](NOTICE) for attribution.
 - Separately licensed **commercial** modules (published under the `com.onec.enterprise` group from a
-  private repository — e.g. enterprise SSO/OIDC auth, and vertical connectors such as Guesty and
-  SES.HOSPEDAJES) are governed by the [onec Commercial License](docs/licensing/COMMERCIAL-LICENSE.md)
-  and are not part of this distribution.
+  private repository — the vertical connectors Guesty and SES.HOSPEDAJES) are governed by the
+  [onec Commercial License](docs/licensing/COMMERCIAL-LICENSE.md) and are not part of this
+  distribution. Authentication, including OIDC / single sign-on, is part of the open-source core
+  (`onec-auth-starter`).
 
 The boundary, and the plan for extracting the commercial modules into their own repository, is
 documented in [docs/licensing/MODULE-SPLIT-PLAN.md](docs/licensing/MODULE-SPLIT-PLAN.md).
