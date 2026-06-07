@@ -33,6 +33,18 @@ public final class DashboardDivBuilder {
         return content(items);
     }
 
+    /**
+     * The neutral landing for an app with no dashboard — no authored {@code Page} at
+     * {@code "/"} and no (readable) widgets. Deliberately blank: no "Dashboard" title,
+     * greeting, or "Nothing here yet" card, so a dashboard-less app never opens onto a
+     * phantom dashboard. The client lands the user on the first real nav item instead
+     * (see {@code DivKitController#shell} "home"); this surface only shows when the app
+     * exposes nothing at all.
+     */
+    public static Map<String, Object> empty() {
+        return content(List.of());
+    }
+
     private static Map<String, Object> content(List<Map<String, Object>> items) {
         Map<String, Object> root = Div.vertical(items);
         Div.id(root, "onec-content");

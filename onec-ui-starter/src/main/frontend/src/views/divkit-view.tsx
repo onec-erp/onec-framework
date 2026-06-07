@@ -55,6 +55,10 @@ type NavStyle = "topbar" | "sidebar" | "bottom_bar";
 
 type ShellData = {
   navStyle: NavStyle;
+  // Where "/" should land. The dashboard ("/") when there is one, otherwise the first
+  // real nav item — so a dashboard-less app opens on a real screen instead of a phantom
+  // "Dashboard". The client redirects "/" here on load (see the redirect effect).
+  home: string;
   nav: DivKitProps["json"];
   account: DivKitProps["json"];
 };
@@ -301,6 +305,9 @@ export function DivKitView() {
       setShell(cached);
       return;
     }
+    // Drop the previous shell while the new one (e.g. after a persona switch) loads, so
+    // the landing redirect never acts on a stale `home` belonging to the old profile.
+    setShell(null);
     let cancelled = false;
     fetch(shellEndpoint, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
@@ -315,6 +322,26 @@ export function DivKitView() {
       cancelled = true;
     };
   }, [shellEndpoint]);
+
+  // When the app has no dashboard, "/" isn't a real surface — the shell reports the path
+  // to land on instead (the first nav item). Redirect there on load: drop the placeholder
+  // "/" tab so no stray "Dashboard" tab lingers, and replace history so Back doesn't
+  // return to the empty "/".
+  useEffect(() => {
+    const home = shell?.home;
+    if (!home || home === "/" || location.pathname !== "/") return;
+    setWorkspace((ws) => {
+      const focused = ws.panes.find((p) => p.id === ws.focused) ?? ws.panes[0];
+      const panes = ws.panes.map((p) => {
+        if (p.id !== focused.id) return p;
+        const kept = p.tabs.filter((t) => t.path !== "/");
+        const tabs = kept.some((t) => t.path === home) ? kept : [...kept, tabForPath(home)];
+        return { ...p, tabs, activePath: home };
+      });
+      return { ...ws, panes, focused: focused.id };
+    });
+    navigate(home, { replace: true });
+  }, [shell, location.pathname, navigate]);
 
   // ----- live updates: one SSE stream fans out to every mounted island -----
 

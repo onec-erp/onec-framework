@@ -114,6 +114,9 @@ public class DivKitController {
         // where it's the /account page).
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("navStyle", navStyle.name().toLowerCase());
+        // Where "/" should land: the dashboard if there is one, else the first real nav
+        // item, so a dashboard-less app opens on a real screen instead of a phantom one.
+        out.put("home", landingPath(nav));
         out.put("nav", DivCard.of("onec-nav",
                 ShellLayoutBuilder.nav(brand, nav, navStyle, vp == Viewport.TABLET, p)));
         out.put("account", DivCard.of("onec-account",
@@ -191,7 +194,14 @@ public class DivKitController {
             List<DashboardWidgetDescriptor> widgets = layoutResolver.resolveWidgets(active).stream()
                     .filter(w -> access.canRead(principal, w.entityType(), w.entityName()))
                     .toList();
-            content = DashboardDivBuilder.build(defaultTitle, greeting, widgets, columns, this::widgetValue, p);
+            // No authored "/" page and no (readable) widgets means the app has no dashboard.
+            // Render a neutral, empty surface rather than a phantom "Dashboard" / "Welcome
+            // back" / "Nothing here yet" card — the client lands the user on the first real
+            // nav item (see #shell "home"), and this is only the surface for an app that
+            // exposes nothing at all.
+            content = widgets.isEmpty()
+                    ? DashboardDivBuilder.empty()
+                    : DashboardDivBuilder.build(defaultTitle, greeting, widgets, columns, this::widgetValue, p);
         }
         return DivCard.of("onec-content", content);
     }
@@ -577,6 +587,22 @@ public class DivKitController {
     private boolean hasDashboard(UiLayout.Profile active, Viewport vp) {
         return pageResolver.resolve("/", active.id(), vp) != null
                 || !layoutResolver.resolveWidgets(active).isEmpty();
+    }
+
+    /**
+     * Where opening the app should land. {@link #navFor} already leads the nav with the
+     * Dashboard ("/") when {@link #hasDashboard}, so the first nav item's path is "/"
+     * for a dashboard app and the first real screen otherwise — letting a dashboard-less
+     * app open on a real surface instead of a phantom "Dashboard". Falls back to "/" (the
+     * neutral, empty landing) only when the user can reach nothing at all.
+     */
+    private static String landingPath(List<ShellLayoutBuilder.NavSection> nav) {
+        for (ShellLayoutBuilder.NavSection section : nav) {
+            if (!section.items().isEmpty()) {
+                return section.items().get(0).path();
+            }
+        }
+        return "/";
     }
 
     /**
