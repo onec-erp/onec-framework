@@ -1,12 +1,6 @@
 plugins {
     `java-library`
-    `maven-publish`
     id("com.github.node-gradle.node") version "7.1.0"
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
 }
 
 node {
@@ -30,25 +24,6 @@ tasks.named<ProcessResources>("processResources") {
     dependsOn(buildFrontend)
     from("src/main/frontend/dist") {
         into("static/ui")
-    }
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            from(components["java"])
-            artifactId = "onec-ui-starter"
-        }
-    }
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/onec-erp/onec-framework")
-            credentials {
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
-            }
-        }
     }
 }
 

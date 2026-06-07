@@ -60,69 +60,57 @@ repositories {
 }
 
 dependencies {
-    implementation("com.onec:onec-framework-starter:0.1.0")
-    implementation("com.onec:onec-ui-starter:0.1.0")
+    implementation("io.github.onec-erp:onec-framework-starter:0.1.0-SNAPSHOT")
+    implementation("io.github.onec-erp:onec-ui-starter:0.1.0-SNAPSHOT")
 }
 ```
 
-## GitHub Packages
+> Maven coordinates use the `io.github.onec-erp` group; the Java packages are still `com.onec.*`,
+> so your imports don't change.
 
-The library modules are configured to publish to GitHub Packages at:
+## Maven Central
 
-```text
-https://maven.pkg.github.com/onec-erp/onec-framework
-```
-
-Publish with:
-
-```bash
-GITHUB_ACTOR=your-user GITHUB_TOKEN=your-token ./gradlew publish
-```
-
-CI publishes packages from version tags. Push a tag named `v0.1.0` to publish artifacts with version `0.1.0`:
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-Release candidates work the same way. A tag named `v0.1.0-rc1` publishes artifacts with version `0.1.0-rc1`:
-
-```bash
-git tag v0.1.0-rc1
-git push origin v0.1.0-rc1
-```
-
-The release workflow also supports manual dispatch with an explicit version. In both cases, CI runs `clean check` before publishing.
-After publishing packages, the workflow creates a GitHub Release with generated notes. Versions with a suffix, such as `0.1.0-rc1`, are marked as pre-releases.
-
-A consuming project can resolve published artifacts with:
+Released modules are published to [Maven Central](https://central.sonatype.com/namespace/io.github.onec-erp)
+under the `io.github.onec-erp` group. Consumers need **no credentials and no custom repository** —
+just `mavenCentral()`:
 
 ```kotlin
 repositories {
     mavenCentral()
-    maven {
-        url = uri("https://maven.pkg.github.com/onec-erp/onec-framework")
-        credentials {
-            username = providers.gradleProperty("gpr.user").orNull
-                ?: System.getenv("GITHUB_ACTOR")
-            password = providers.gradleProperty("gpr.key").orNull
-                ?: System.getenv("GITHUB_TOKEN")
-        }
-    }
 }
 
 dependencies {
-    implementation("com.onec:onec-framework-starter:0.1.0")
+    implementation("io.github.onec-erp:onec-framework-starter:0.6.0")
 }
 ```
 
-Store credentials outside source control, for example in `~/.gradle/gradle.properties`:
+### Publishing a release
 
-```properties
-gpr.user=your-user
-gpr.key=your-token
+CI publishes from version tags via the [vanniktech maven-publish](https://vanniktech.github.io/gradle-maven-publish-plugin/)
+plugin. Push a tag named `v0.6.0` to publish artifacts with version `0.6.0`:
+
+```bash
+git tag v0.6.0
+git push origin v0.6.0
 ```
+
+Release candidates work the same way — a `v0.6.0-rc1` tag publishes `0.6.0-rc1`. The workflow also
+supports manual dispatch with an explicit version. In both cases CI runs `clean check`, signs the
+artifacts, and uploads a deployment to the Central Portal; with `SONATYPE_AUTOMATIC_RELEASE=false`
+the deployment is staged for a manual **Publish** click at [central.sonatype.com](https://central.sonatype.com/publishing/deployments).
+A GitHub Release with generated notes is created too (suffixed versions like `0.6.0-rc1` are marked pre-release).
+
+Publishing requires these repository secrets (see the publish workflow):
+
+| Secret | What it is |
+| --- | --- |
+| `MAVEN_CENTRAL_USERNAME` / `MAVEN_CENTRAL_PASSWORD` | Central Portal **user token** (Account → Generate User Token). |
+| `SIGNING_IN_MEMORY_KEY` | ASCII-armored GPG private key (`gpg --armor --export-secret-keys`). |
+| `SIGNING_IN_MEMORY_KEY_PASSWORD` | Passphrase for that GPG key. |
+
+To publish locally to Maven Central instead, set the matching `ORG_GRADLE_PROJECT_*` properties and
+run `./gradlew publishToMavenCentral`. A bare `./gradlew publishToMavenLocal` needs no signing (it is
+skipped for `-SNAPSHOT` versions).
 
 ## Desktop Plugin
 
@@ -156,8 +144,8 @@ Most integration starters are disabled by default and are enabled through `onec.
 
 The framework follows an **open-core** model.
 
-- The modules published under the `com.onec` group in this repository are open source under the
-  [Apache License 2.0](LICENSE). See [`NOTICE`](NOTICE) for attribution.
+- The modules in this repository (published to Maven Central under the `io.github.onec-erp` group)
+  are open source under the [Apache License 2.0](LICENSE). See [`NOTICE`](NOTICE) for attribution.
 - Separately licensed **commercial** modules (published under the `com.onec.enterprise` group from a
   private repository — the vertical connectors Guesty and SES.HOSPEDAJES) are governed by the
   [onec Commercial License](docs/licensing/COMMERCIAL-LICENSE.md) and are not part of this

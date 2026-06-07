@@ -1,11 +1,5 @@
 plugins {
     `java-library`
-    `maven-publish`
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
 }
 
 // Package the generic Tauri shell sources into the jar under `onec-desktop-shell/`
@@ -14,25 +8,6 @@ java {
 tasks.named<ProcessResources>("processResources") {
     from("src/main/tauri") {
         into("onec-desktop-shell")
-    }
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            from(components["java"])
-            artifactId = "onec-desktop-starter"
-        }
-    }
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/onec-erp/onec-framework")
-            credentials {
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
-            }
-        }
     }
 }
 
