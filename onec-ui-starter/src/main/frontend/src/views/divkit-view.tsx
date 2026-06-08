@@ -473,6 +473,46 @@ export function DivKitView() {
         window.location.href = "/" + rest.slice("download/".length);
         return;
       }
+      if (rest.startsWith("upload/")) {
+        // upload/{path} — pick a local file and POST it (multipart "file") to the server endpoint
+        // at /{path}. The mirror of download/: it lets any feature accept a file from the user
+        // (template replacement, attachments, imports) without bespoke frontend code.
+        const target = "/" + rest.slice("upload/".length);
+        const input = document.createElement("input");
+        input.type = "file";
+        input.style.display = "none";
+        input.addEventListener("change", () => {
+          const file = input.files?.[0];
+          input.remove();
+          if (!file) return;
+          const form = new FormData();
+          form.append("file", file);
+          // CSRF: same token convention as the JSON api layer (XSRF-TOKEN cookie -> X-XSRF-TOKEN).
+          const xsrf = document.cookie
+            .split("; ")
+            .find((c) => c.startsWith("XSRF-TOKEN="))
+            ?.slice("XSRF-TOKEN=".length);
+          const loadingId = toast.loading("Uploading " + file.name + "…");
+          fetch(target, {
+            method: "POST",
+            body: form,
+            credentials: "same-origin",
+            headers: xsrf ? { "X-XSRF-TOKEN": decodeURIComponent(xsrf) } : {},
+          })
+            .then((r) => {
+              toast.dismiss(loadingId);
+              if (r.ok) toast.success("Uploaded " + file.name);
+              else toast.error("Upload failed (" + r.status + ")");
+            })
+            .catch(() => {
+              toast.dismiss(loadingId);
+              toast.error("Upload failed");
+            });
+        });
+        document.body.appendChild(input);
+        input.click();
+        return;
+      }
       if (rest.startsWith("app")) {
         const q = rest.indexOf("?");
         const params = new URLSearchParams(q >= 0 ? rest.slice(q + 1) : "");

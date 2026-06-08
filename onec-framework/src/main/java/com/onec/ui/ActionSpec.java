@@ -83,7 +83,14 @@ public final class ActionSpec {
             return this;
         }
 
-        /** Route the client to {@code url} when clicked ({@code {id}} is filled with the record id). */
+        /**
+         * Route the client to {@code url} when clicked ({@code {id}} is filled with the record id).
+         * Besides in-app routes, two file conventions are understood by the client:
+         * {@code onec://download/{path}} streams a file from {@code /{path}} (Content-Disposition
+         * attachment), and {@code onec://upload/{path}} picks a local file and POSTs it (multipart
+         * {@code file}) to {@code /{path}} — so features can offer file export/import with no bespoke
+         * frontend code.
+         */
         public ActionBuilder navigate(String url) {
             this.navigateUrl = url;
             return this;
