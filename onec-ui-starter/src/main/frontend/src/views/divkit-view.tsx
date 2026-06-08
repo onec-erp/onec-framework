@@ -660,10 +660,12 @@ export function DivKitView() {
       const ws = wsRef.current;
       const pane = ws.panes.find((p) => p.id === paneId);
       if (!pane) return;
-      // Closing the last tab of the only island leaves it blank (an empty island);
-      // we don't navigate, so the URL effect won't repopulate it until the next nav.
+      // Closing the last tab of the only island leaves it blank (an empty island).
+      // Reset the URL to the app root so it no longer points at the just-closed surface;
+      // the landing effect re-lands dashboard-less apps on their home path from there.
       if (ws.panes.length === 1 && pane.tabs.length === 1) {
         setWorkspace({ panes: [{ ...pane, tabs: [], activePath: "" }], sizes: [1], focused: pane.id });
+        if (location.pathname !== "/") navigate("/", { replace: true });
         return;
       }
       const next = detachTab(ws, path);
