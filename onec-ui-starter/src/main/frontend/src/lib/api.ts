@@ -110,6 +110,46 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return JSON.parse(text);
 }
 
+/** A stored-media reference returned by {@code POST /api/media} (see MediaController). */
+export interface StoredMedia {
+  key: string;
+  url: string;
+  contentType: string;
+  size: number;
+  filename?: string | null;
+}
+
+/**
+ * Stream a file to the framework's binary-upload endpoint and resolve to its stored reference. The
+ * body is multipart/form-data (no JSON Content-Type — the browser sets the boundary itself); the
+ * CSRF header rides along since this is a mutating request. Callers persist the returned {@code url}
+ * instead of base64-ing the bytes through a field.
+ */
+export async function uploadMedia(file: File): Promise<StoredMedia> {
+  const form = new FormData();
+  form.append("file", file);
+  const headers: Record<string, string> = {};
+  const csrf = readCsrfToken();
+  if (csrf) headers[CSRF_HEADER] = csrf;
+
+  const res = await fetch(`${BASE}/media`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers,
+    body: form,
+  });
+  if (!res.ok) {
+    let message = `${res.status} ${res.statusText}`;
+    try {
+      const body = await res.json();
+      if (body.message) message = body.message;
+      else if (body.error) message = body.error;
+    } catch { /* ignore parse errors */ }
+    throw new ApiError(message, res.status);
+  }
+  return (await res.json()) as StoredMedia;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,

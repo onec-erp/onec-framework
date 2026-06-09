@@ -24,6 +24,10 @@ public class Employee extends CatalogObject {
     @Attribute(displayName = "Avatar", length = 500)
     private String avatarUrl;
 
+    // Streamed to POST /api/media via .widget("file"); only the reference URL is stored here.
+    @Attribute(displayName = "Contract", length = 500)
+    private String contractUrl;
+
     @Attribute(displayName = "Role", length = 50)
     private String role;
 

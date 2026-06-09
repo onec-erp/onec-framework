@@ -63,6 +63,13 @@ onec:
     use-outbox: true
   print:
     enabled: true
+  media:
+    # Binary uploads (image/file widgets, POST /api/media) stream to disk here instead of being
+    # base64'd into a field. Kept next to the H2 file DB so uploads survive restarts in dev.
+    filesystem:
+      directory: ./data/media
+    # max-file-size: 10MB
+    # allowed-content-types: [image/*, application/pdf]
 
 # --------------------------------------------------------------------------------------------
 # OIDC wiring. Uncomment ONE of the blocks below and set onec.auth.mode accordingly.

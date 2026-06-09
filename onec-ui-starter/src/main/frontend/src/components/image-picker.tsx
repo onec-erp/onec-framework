@@ -1,28 +1,38 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { ImagePlus, Trash2, Upload, X } from "lucide-react";
+import { ImagePlus, Loader2, Trash2, Upload, X } from "lucide-react";
+import { uploadMedia } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 /**
  * An image input for an attribute whose field hint sets {@code .widget("image")} (or
- * {@code "avatar"} for a small round variant). The value is a base64 {@code data:} URL, so it
- * round-trips through a String attribute — which must be declared large enough to be stored as
- * TEXT (e.g. {@code @Attribute(length = 2_000_000)}; see SchemaGenerator.columnType). Drag an
- * image file onto the drop zone or click to pick one; the file is read entirely in the browser,
- * never uploaded separately.
+ * {@code "avatar"} for a small round variant). The chosen file is streamed to {@code POST /api/media}
+ * (see MediaController) and only the returned reference URL is stored in the attribute — so a plain
+ * String column holds it, no base64-sized TEXT needed. Legacy {@code data:} base64 values still
+ * render fine, so older records keep working.
  */
 
-// Cap the original file so a row doesn't balloon (base64 adds ~37%). Larger → ask the user to
-// shrink it rather than silently storing a multi-megabyte string.
-const MAX_BYTES = 2 * 1024 * 1024;
+// Client-side guard mirroring the server's onec.media.max-file-size default (10 MB). The server
+// validates authoritatively; this just gives instant feedback before the upload starts.
+const MAX_BYTES = 10 * 1024 * 1024;
 
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error("read failed"));
-    reader.readAsDataURL(file);
-  });
+// Stream one image file to object storage and return its stored URL, or null on rejection.
+async function uploadImage(file: File): Promise<string | null> {
+  if (!file.type.startsWith("image/")) {
+    toast.error(`"${file.name}" isn't an image.`);
+    return null;
+  }
+  if (file.size > MAX_BYTES) {
+    toast.error(`"${file.name}" is too large (max ${Math.round(MAX_BYTES / 1024 / 1024)} MB).`);
+    return null;
+  }
+  try {
+    const stored = await uploadMedia(file);
+    return stored.url;
+  } catch {
+    toast.error(`Couldn't upload "${file.name}".`);
+    return null;
+  }
 }
 
 export function ImagePicker({
@@ -36,27 +46,24 @@ export function ImagePicker({
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [busy, setBusy] = useState(false);
   const avatar = variant === "avatar";
   const hasImage = typeof value === "string" && value.length > 0;
 
   const accept = async (file: File | undefined | null) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("That file isn't an image.");
-      return;
-    }
-    if (file.size > MAX_BYTES) {
-      toast.error(`Image is too large (max ${Math.round(MAX_BYTES / 1024 / 1024)} MB).`);
-      return;
-    }
+    if (!file || busy) return;
+    setBusy(true);
     try {
-      onChange(await readAsDataUrl(file));
-    } catch {
-      toast.error("Couldn't read that image.");
+      const url = await uploadImage(file);
+      if (url) onChange(url);
+    } finally {
+      setBusy(false);
     }
   };
 
-  const openPicker = () => inputRef.current?.click();
+  const openPicker = () => {
+    if (!busy) inputRef.current?.click();
+  };
 
   return (
     <div className="grid gap-2">
@@ -95,6 +102,7 @@ export function ImagePicker({
         className={cn(
           "relative flex cursor-pointer items-center justify-center overflow-hidden border border-dashed border-border bg-muted/30 text-muted-foreground transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           dragging && "border-primary bg-primary/10 text-foreground",
+          busy && "pointer-events-none opacity-70",
           avatar ? "size-28 rounded-full" : "h-44 w-full rounded-xl"
         )}
       >
@@ -102,19 +110,29 @@ export function ImagePicker({
           <img src={value} alt="" className="h-full w-full object-cover" />
         ) : (
           <div className="flex flex-col items-center gap-1.5 px-3 text-center">
-            <ImagePlus className="size-6" aria-hidden="true" />
+            {busy ? (
+              <Loader2 className="size-6 animate-spin" aria-hidden="true" />
+            ) : (
+              <ImagePlus className="size-6" aria-hidden="true" />
+            )}
             <span className="text-xs">
-              {avatar ? "Add photo" : "Drop an image here, or click to choose"}
+              {busy ? "Uploading…" : avatar ? "Add photo" : "Drop an image here, or click to choose"}
             </span>
           </div>
         )}
+        {hasImage && busy ? (
+          <div className="absolute inset-0 grid place-items-center bg-background/60">
+            <Loader2 className="size-6 animate-spin" aria-hidden="true" />
+          </div>
+        ) : null}
       </div>
       {hasImage ? (
         <div className="flex gap-2">
           <button
             type="button"
             onClick={openPicker}
-            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
           >
             <Upload className="size-3.5" aria-hidden="true" />
             Replace
@@ -122,7 +140,8 @@ export function ImagePicker({
           <button
             type="button"
             onClick={() => onChange("")}
-            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-destructive"
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-destructive disabled:opacity-50"
           >
             <Trash2 className="size-3.5" aria-hidden="true" />
             Remove
@@ -133,15 +152,16 @@ export function ImagePicker({
   );
 }
 
-// Several images are stored newline-joined in one String attribute. base64 data URLs contain no
-// newline, so the join is unambiguous and the server splits on it too (SurfaceDivBuilder).
+// Several images are stored newline-joined in one String attribute. Stored-media URLs (and legacy
+// base64 data URLs) contain no newline, so the join is unambiguous and the server splits on it too
+// (SurfaceDivBuilder).
 const GALLERY_SEP = "\n";
 
 /**
  * A multi-image picker for an attribute whose field hint sets {@code .widget("images")} (or
- * {@code "gallery"}). Drop several files at once or click Add; each becomes a base64 data URL,
- * stored newline-joined — so this also needs a large-length / TEXT attribute. Thumbnails show in
- * a grid; hover a thumbnail to remove it.
+ * {@code "gallery"}). Drop several files at once or click Add; each is streamed to
+ * {@code POST /api/media} and stored as a reference URL, newline-joined. Thumbnails show in a grid;
+ * hover a thumbnail to remove it.
  */
 export function GalleryPicker({
   value,
@@ -152,6 +172,7 @@ export function GalleryPicker({
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(0);
   const urls = (value ?? "")
     .split(GALLERY_SEP)
     .map((s) => s.trim())
@@ -159,21 +180,17 @@ export function GalleryPicker({
 
   const addFiles = async (files: FileList | File[] | null | undefined) => {
     if (!files) return;
+    const list = Array.from(files);
+    setUploading((n) => n + list.length);
     const accepted: string[] = [];
-    for (const file of Array.from(files)) {
-      if (!file.type.startsWith("image/")) {
-        toast.error(`"${file.name}" isn't an image.`);
-        continue;
+    try {
+      // Upload concurrently, then append in selection order so the gallery keeps a stable order.
+      const results = await Promise.all(list.map((file) => uploadImage(file)));
+      for (const url of results) {
+        if (url) accepted.push(url);
       }
-      if (file.size > MAX_BYTES) {
-        toast.error(`"${file.name}" is too large (max ${Math.round(MAX_BYTES / 1024 / 1024)} MB).`);
-        continue;
-      }
-      try {
-        accepted.push(await readAsDataUrl(file));
-      } catch {
-        toast.error(`Couldn't read "${file.name}".`);
-      }
+    } finally {
+      setUploading((n) => Math.max(0, n - list.length));
     }
     if (accepted.length) onChange([...urls, ...accepted].join(GALLERY_SEP));
   };
@@ -228,6 +245,14 @@ export function GalleryPicker({
             >
               <X className="size-3.5" aria-hidden="true" />
             </button>
+          </div>
+        ))}
+        {Array.from({ length: uploading }).map((_, i) => (
+          <div
+            key={`uploading-${i}`}
+            className="grid aspect-square place-items-center rounded-lg border border-dashed border-border bg-muted/30 text-muted-foreground"
+          >
+            <Loader2 className="size-5 animate-spin" aria-hidden="true" />
           </div>
         ))}
         <button
