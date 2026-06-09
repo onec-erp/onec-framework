@@ -28,6 +28,7 @@ public class EmployeeView implements EntityView {
                 .field("hiredOn").order(4)
                 .field("email").order(5)
                 .field("mobile").order(6)
-                .field("active").order(7);
+                .field("active").order(7)
+                .field("contractUrl").order(8).widget("file");
     }
 }

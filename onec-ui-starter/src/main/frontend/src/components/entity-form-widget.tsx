@@ -19,6 +19,7 @@ import { RefSelect } from "@/components/ref-select";
 import { DatePicker } from "@/components/date-picker";
 import { GeoPicker } from "@/components/geo-picker";
 import { ImagePicker, GalleryPicker } from "@/components/image-picker";
+import { FilePicker } from "@/components/file-picker";
 
 // Matches the DivKit action pills (Edit/Delete/New): a compact dark pill, icon + label,
 // rounded-lg, text-sm/medium, with the same vertical/horizontal rhythm.
@@ -573,9 +574,9 @@ function AttrControl({
     return <GeoPicker value={value as string | undefined} onChange={onChange} />;
   }
 
-  // Image widgets store a base64 data URL string (use a large-length / TEXT attribute). "avatar"
-  // is a small round variant — it also lights up the existing .widget("avatar") hint. "images"/
-  // "gallery" stores several, newline-joined.
+  // Media widgets stream the chosen file to POST /api/media and store only the returned reference
+  // URL — so a plain String attribute holds it (no base64-sized TEXT). "avatar" is a small round
+  // image variant; "images"/"gallery" stores several URLs newline-joined; "file" takes any type.
   if (/^(images|gallery|photos)$/i.test(attr.widget ?? "")) {
     return <GalleryPicker value={value as string | undefined} onChange={onChange} />;
   }
@@ -584,6 +585,9 @@ function AttrControl({
   }
   if (/^avatar$/i.test(attr.widget ?? "")) {
     return <ImagePicker variant="avatar" value={value as string | undefined} onChange={onChange} />;
+  }
+  if (/^(file|upload|attachment)$/i.test(attr.widget ?? "")) {
+    return <FilePicker value={value as string | undefined} onChange={onChange} />;
   }
 
   if (attr.isRef && attr.refTarget) {
