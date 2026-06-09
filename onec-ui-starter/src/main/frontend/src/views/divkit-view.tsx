@@ -328,13 +328,23 @@ export function DivKitView() {
     };
   }, [shellEndpoint]);
 
+  // Set just before closeTab navigates a now-empty island to "/", so the landing effect below
+  // skips the one auto-land that close would otherwise trigger. Without this, closing the last
+  // tab of a dashboard-less app instantly reopens the home screen (Esc never appears to close it).
+  const suppressLandingRef = useRef(false);
+
   // When the app has no dashboard, "/" isn't a real surface — the shell reports the path
   // to land on instead (the first nav item). Redirect there on load: drop the placeholder
   // "/" tab so no stray "Dashboard" tab lingers, and replace history so Back doesn't
-  // return to the empty "/".
+  // return to the empty "/". An explicit "close the last tab" also routes to "/", but there the
+  // user wants a blank island, not a re-land — suppressLandingRef distinguishes the two.
   useEffect(() => {
     const home = shell?.home;
     if (!home || home === "/" || location.pathname !== "/") return;
+    if (suppressLandingRef.current) {
+      suppressLandingRef.current = false;
+      return;
+    }
     setWorkspace((ws) => {
       const focused = ws.panes.find((p) => p.id === ws.focused) ?? ws.panes[0];
       const panes = ws.panes.map((p) => {
@@ -673,11 +683,15 @@ export function DivKitView() {
       const pane = ws.panes.find((p) => p.id === paneId);
       if (!pane) return;
       // Closing the last tab of the only island leaves it blank (an empty island).
-      // Reset the URL to the app root so it no longer points at the just-closed surface;
-      // the landing effect re-lands dashboard-less apps on their home path from there.
+      // Reset the URL to the app root so it no longer points at the just-closed surface, and tell
+      // the landing effect to leave it blank rather than re-landing the home path (which would make
+      // the just-closed tab reappear instantly on dashboard-less apps).
       if (ws.panes.length === 1 && pane.tabs.length === 1) {
         setWorkspace({ panes: [{ ...pane, tabs: [], activePath: "" }], sizes: [1], focused: pane.id });
-        if (location.pathname !== "/") navigate("/", { replace: true });
+        if (location.pathname !== "/") {
+          suppressLandingRef.current = true;
+          navigate("/", { replace: true });
+        }
         return;
       }
       const next = detachTab(ws, path);
