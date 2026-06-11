@@ -16,6 +16,7 @@ include(
     "onec-ui-starter",
     "onec-auth-starter",
     "onec-mcp-starter",
+    "onec-import-starter",
     "onec-kafka-starter",
     "onec-print-starter",
     "onec-mail-starter",
