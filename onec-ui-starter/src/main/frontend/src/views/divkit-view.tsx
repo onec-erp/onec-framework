@@ -728,6 +728,13 @@ export function DivKitView() {
   // The tab currently being dragged (reactive mirror of dragRef, for the preview).
   const [dragState, setDragState] = useState<{ path: string; fromPaneId: string } | null>(null);
 
+  const clearTabDrag = useCallback(() => {
+    dragRef.current = null;
+    setDragState(null);
+    setDropTarget(null);
+    setTabDrop(null);
+  }, []);
+
   // Move a dragged tab into an existing island (append + activate there).
   const moveTabInto = useCallback(
     (targetPaneId: string, path: string) => {
@@ -862,11 +869,8 @@ export function DivKitView() {
   }, []);
 
   const onTabDragEnd = useCallback(() => {
-    dragRef.current = null;
-    setDragState(null);
-    setDropTarget(null);
-    setTabDrop(null);
-  }, []);
+    clearTabDrag();
+  }, [clearTabDrag]);
 
   // Insertion slot in a strip for the cursor x: the count of tabs (excluding the one
   // being dragged) whose midpoint sits left of the cursor. Excluding the dragged tab
@@ -899,20 +903,52 @@ export function DivKitView() {
   const onDrop = useCallback(
     (paneId: string, mode: "left" | "into" | "right") => {
       const drag = dragRef.current;
-      dragRef.current = null;
-      setDropTarget(null);
+      clearTabDrag();
       if (!drag) return;
       if (mode === "right") splitRight(paneId, drag.path);
       else if (mode === "left") splitLeft(paneId, drag.path);
       else moveTabInto(paneId, drag.path);
     },
-    [moveTabInto, splitRight, splitLeft]
+    [clearTabDrag, moveTabInto, splitRight, splitLeft]
   );
+
+  useEffect(() => {
+    const clearIfDragging = () => {
+      if (dragRef.current || dragState) clearTabDrag();
+    };
+    const clearAfterNativeDrop = () => window.setTimeout(clearIfDragging, 0);
+    const clearAfterPointerRelease = () => window.setTimeout(clearIfDragging, 0);
+    const clearOnEscape = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || (!dragRef.current && !dragState)) return;
+      e.preventDefault();
+      clearTabDrag();
+    };
+    const clearOnVisibilityChange = () => {
+      if (document.visibilityState === "hidden") clearIfDragging();
+    };
+
+    window.addEventListener("dragend", clearIfDragging);
+    window.addEventListener("drop", clearAfterNativeDrop);
+    window.addEventListener("pointerup", clearAfterPointerRelease);
+    window.addEventListener("blur", clearIfDragging);
+    window.addEventListener("keydown", clearOnEscape);
+    document.addEventListener("visibilitychange", clearOnVisibilityChange);
+    return () => {
+      window.removeEventListener("dragend", clearIfDragging);
+      window.removeEventListener("drop", clearAfterNativeDrop);
+      window.removeEventListener("pointerup", clearAfterPointerRelease);
+      window.removeEventListener("blur", clearIfDragging);
+      window.removeEventListener("keydown", clearOnEscape);
+      document.removeEventListener("visibilitychange", clearOnVisibilityChange);
+    };
+  }, [clearTabDrag, dragState]);
 
   // Esc closes the focused island's active tab (unless you're typing in a field).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       if (e.key !== "Escape" || viewport !== "desktop") return;
+      if (dragRef.current || dragState) return;
       const el = document.activeElement as HTMLElement | null;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) {
         return;
@@ -923,7 +959,7 @@ export function DivKitView() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [closeTab, viewport]);
+  }, [closeTab, dragState, viewport]);
 
   // ----- resize between islands -----
 
@@ -1210,10 +1246,7 @@ export function DivKitView() {
             e.stopPropagation();
             const slot = stripInsertIndex(e.currentTarget, e.clientX, dragRef.current?.path);
             dropOnStrip(pane.id, slot); // reads dragRef.current
-            dragRef.current = null;
-            setDragState(null);
-            setTabDrop(null);
-            setDropTarget(null);
+            clearTabDrag();
           }}
         >
           {displayTabs.map((slot) => {
