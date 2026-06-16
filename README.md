@@ -20,6 +20,9 @@ reference/enum expansion, secret redaction, list vs get) and how to react to cha
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Every `onec.*` configuration property, by module, with defaults. |
 | [docs/HEADLESS_READ_API.md](docs/HEADLESS_READ_API.md) | JSON response contract for the generic read API. |
 | [docs/MEDIA_UPLOADS.md](docs/MEDIA_UPLOADS.md) | Binary upload endpoint and the `MediaStorage` SPI. |
+| [docs/EXTENDING.md](docs/EXTENDING.md) | How to build a community extension (connector, SPI, UI, skill), the naming/namespace conventions, and how to get it listed. |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute code and how to list a community integration. |
+| [INTEGRATIONS.md](INTEGRATIONS.md) | Catalog of community-built integrations (generated from `community/registry.json`). |
 | [`onec` skill](onec-plugin/skills/onec/SKILL.md) | A hands-on expert playbook + cheat sheet that makes Claude Code good at this framework. Auto-loaded for anyone working in this repo; installable by downstream apps (see below). |
 
 Each module also has its own `README.md` with integration-specific setup.
@@ -63,6 +66,19 @@ Commercial vertical connectors — `onec-guesty-starter` (Guesty Open API) and
 `onec-hospedajes-starter` (Spanish SES.HOSPEDAJES) — live in the separate, commercially licensed
 [onec-enterprise](https://github.com/onec-erp/onec-enterprise) repository. See the
 [License](#license) section.
+
+## Extending onec
+
+The framework is built to be extended **without forking** — you ship a separate artifact the host
+app opts into. Four extension surfaces: **connectors** (wrap an external system), **SPI
+implementations** (`MediaStorage`, `MailDispatcher`, custom auth, …), **UI** (widgets/pages/actions),
+and Claude **skills/plugins**. The full how-to — the starter shape, the naming/namespace conventions
+that keep the `io.github.onec-erp` and `com.onec.*` namespaces reserved, and a "definition of done"
+checklist — is in [docs/EXTENDING.md](docs/EXTENDING.md).
+
+Built one? Add it to the community catalog in [INTEGRATIONS.md](INTEGRATIONS.md): append an entry to
+[`community/registry.json`](community/registry.json), run `./gradlew generateIntegrationsDoc`, and
+open a PR (see [CONTRIBUTING.md](CONTRIBUTING.md#listing-a-community-integration)).
 
 ## Requirements
 
