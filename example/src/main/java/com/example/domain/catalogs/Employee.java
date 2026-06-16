@@ -11,6 +11,14 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/**
+ * A staff member — a {@code @Catalog} of the people who run the business. Two roles in the app:
+ * a booking's {@code assignedTo} points here, and the {@link com.example.domain.catalogs.BookingStaff}
+ * join catalog assigns several employees to a booking. It's also the <em>identity</em> target — the
+ * main layout links login accounts to Employee records by {@code email}
+ * ({@code layout.identity(Employee.class, "email")}), so a signed-in user maps to their staff record.
+ * {@code avatarUrl}/{@code contractUrl} demonstrate the image and file widgets.
+ */
 @Catalog(name = "Employees", codeLength = 6, codePrefix = "E-", context = "Rentals")
 // Cleaners see the team roster (read-only); only rentals managers edit it.
 @AccessControl(readRoles = {"RENTALS", "CLEANER"}, writeRoles = {"RENTALS"})

@@ -29,6 +29,25 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * A stay reservation — the central {@code @Document} of the app. A document is a dated, numbered
+ * business event (here numbered {@code B-…}); the framework supplies {@code date} and {@code number}
+ * via {@link DocumentObject}. This one wires up the three lifecycle interfaces a document typically
+ * needs:
+ * <ul>
+ *   <li>{@link BeforeWriteHandler} — derive {@code nights}, {@code totalGross}, and {@code summary}
+ *       from the inputs on every save, so they're never entered by hand (see {@link #beforeWrite()}).</li>
+ *   <li>{@link Validated} — invariants checked before write and before posting (see {@link #rules()}).</li>
+ *   <li>{@link Postable} — on posting, write movements into {@link OccupancyRegister}
+ *       (see {@link #handlePosting}). A canceled booking writes nothing.</li>
+ * </ul>
+ *
+ * <p>{@code guests} is a {@code @TabularSection}: repeated {@link Guest} lines stored with the
+ * document. {@code @MailTemplate} registers a "booking confirmed" email (template in
+ * {@code resources/mail/}); {@code @AccessControl} lets cleaners read bookings but only rentals
+ * managers write them. The Booking↔Employee staff assignment is modeled separately as the
+ * {@link com.example.domain.catalogs.BookingStaff} join catalog, not embedded here.</p>
+ */
 @Document(name = "Bookings", numberPrefix = "B-", numberLength = 14, context = "Rentals")
 @AccessControl(readRoles = {"RENTALS", "CLEANER"}, writeRoles = {"RENTALS"})
 @MailTemplate(name = "booking-confirmed",
