@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Send, Trash2, MessageSquare } from "lucide-react";
 import { api, ApiError, type CommentView } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { linkify } from "@/lib/linkify";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 /** The entity a thread hangs off — the same triple the detail route uses. */
@@ -156,7 +157,9 @@ export function EntityCommentsWidget({ target }: { target: CommentTarget }) {
                     </button>
                   ) : null}
                 </div>
-                <p className="whitespace-pre-wrap break-words text-sm text-foreground">{c.body}</p>
+                <p className="whitespace-pre-wrap break-words text-sm text-foreground">
+                  {linkify(c.body)}
+                </p>
               </div>
             </li>
           ))}
