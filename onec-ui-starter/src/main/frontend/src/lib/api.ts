@@ -163,6 +163,35 @@ export async function uploadMedia(file: File): Promise<StoredMedia> {
   return (await res.json()) as StoredMedia;
 }
 
+/**
+ * A resolved {@code @}-mention in a comment body (see MentionResolver). The body carries the mention
+ * as a `@[Display](kind/name/id)` token; this is the live resolution for the current viewer — display
+ * and avatar reflect the record now, and `readable` is false when the viewer can't open it (the chip
+ * then degrades to plain text rather than a broken link).
+ */
+export interface CommentMention {
+  id: string;
+  kind: "catalogs" | "documents";
+  /** URL-safe route name (snake_case) — the `onec://kind/name/id` the chip navigates to. */
+  name: string;
+  /** The entity's display name, e.g. "Customers" (null when the viewer can't read it). */
+  entity: string | null;
+  /** The record's current display, e.g. "Acme Corp" / "INV-42" (null when unreadable or deleted). */
+  display: string | null;
+  avatarUrl: string | null;
+  readable: boolean;
+}
+
+/** A typeahead suggestion from `/api/mentions?q=` — one readable catalog/document record. */
+export interface MentionSuggestion {
+  kind: "catalogs" | "documents";
+  name: string;
+  entity: string;
+  id: string;
+  display: string;
+  avatarUrl: string | null;
+}
+
 /** One comment in an entity's discussion thread (see CommentController). */
 export interface CommentView {
   id: string;
@@ -170,6 +199,8 @@ export interface CommentView {
   /** The author's avatar image URL when their account links to a record with an avatar; else null. */
   authorAvatarUrl: string | null;
   body: string;
+  /** The mentions in `body`, resolved live for the current viewer (empty when none/disabled). */
+  mentions: CommentMention[];
   createdAt: string | null;
   editedAt: string | null;
   /** True when the current user authored this comment. */
@@ -295,6 +326,10 @@ export const api = {
     }),
   deleteComment: (commentId: string) =>
     fetchJson<void>(`${BASE}/comments/${commentId}`, { method: "DELETE" }),
+  // Cross-entity typeahead for the @-mention picker: every readable catalog/document record
+  // matching q, ranked and capped server-side (see MentionController).
+  searchMentions: (q: string) =>
+    fetchJson<MentionSuggestion[]>(`${BASE}/mentions?q=${encodeURIComponent(q)}`),
 
   postDocument: (name: string, id: string) =>
     fetchJson<EntityRecord>(`${BASE}/documents/${name}/${id}/post`, { method: "POST" }),

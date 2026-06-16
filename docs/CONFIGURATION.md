@@ -31,6 +31,9 @@ except Kafka inbound). Standard Spring keys (`spring.datasource.*`, `spring.mail
 | --- | --- | --- | --- |
 | `onec.comments.enabled` | `Boolean` | `true` | Whether the comments endpoint, its storage table, and the detail-page comments panel are wired at all. Turn it off to drop the feature from every entity without touching the model. |
 | `onec.comments.max-length` | `Integer` | `4000` | Largest comment body accepted, in characters. The server rejects a longer body with 422; the compose box mirrors the limit client-side. Defaults to 4000. |
+| `onec.comments.mentions.enabled` | `Boolean` | `true` | Whether `@`-mentions are parsed, resolved and offered in the compose typeahead. Turn it off to keep plain-text comments without touching `onec.comments.enabled`; existing mention tokens then degrade to their plain label text. |
+| `onec.comments.mentions.per-entity-limit` | `Integer` | `5` | Largest number of matches pulled from any one entity before the suggestions are merged and ranked, bounding the per-keystroke scan. Defaults to 5. |
+| `onec.comments.mentions.suggestion-limit` | `Integer` | `8` | Largest number of suggestions a single `/api/mentions` typeahead response returns across all readable entities. Defaults to 8. |
 | `onec.media.allowed-content-types` | `List<String>` | — | Content types the endpoint accepts. Entries may be exact (`image/png`) or a wildcard subtype (`image/*`). Empty means accept any type — fine for an authenticated admin endpoint; set it to lock uploads down to, say, images only. |
 | `onec.media.enabled` | `Boolean` | `true` | Whether the upload endpoint and the default filesystem storage are wired at all. |
 | `onec.media.filesystem.directory` | `String` | — | Directory the filesystem backend writes uploads beneath. Defaults to `onec-media` under the JVM temp dir; set an absolute, persistent path in production. |
