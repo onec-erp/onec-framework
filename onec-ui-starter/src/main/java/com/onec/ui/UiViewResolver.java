@@ -53,6 +53,18 @@ public class UiViewResolver {
         return entity != null && viewFor(entity, profileId) != null;
     }
 
+    /**
+     * Whether comments are enabled for this entity — true if any of its views (default or
+     * profile-specific) opts in via {@link EntityView#comments()}. The comment panel and the
+     * {@code /api/comments} endpoint are both gated on this, so comments are an opt-in, per-entity
+     * capability (on top of the global {@code onec.comments.enabled} switch). Resolved at the entity
+     * level, not per profile.
+     */
+    public boolean commentsEnabled(Class<?> entity) {
+        Map<String, EntityView> byProfile = entity == null ? null : views.get(entity);
+        return byProfile != null && byProfile.values().stream().anyMatch(EntityView::comments);
+    }
+
     /** Profile-specific view wins, then the default view, then auto-generated columns. */
     private EntityView viewFor(Class<?> entity, String profileId) {
         Map<String, EntityView> byProfile = views.get(entity);

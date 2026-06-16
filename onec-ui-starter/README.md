@@ -17,7 +17,7 @@ exists (contributed by `onec-framework-starter`), and the UI is enabled (the def
 onec:
   ui:
     enabled: true        # default
-    path: /ui            # SPA base path advertised via /api/config
+    path: /ui            # URL prefix the SPA is mounted under (use / for the web root)
     read-only: false     # default; true blocks all mutating REST calls
 ```
 
@@ -35,7 +35,7 @@ controller, and a static-resource handler that serves the bundled frontend from
 | Key | Default | Purpose |
 |-----|---------|---------|
 | `onec.ui.enabled` | `true` | Master switch. Also gated on a `MetadataRegistry` bean being present. |
-| `onec.ui.path` | `/ui` | SPA base path, returned to the client as `basePath` from `GET /api/config`. |
+| `onec.ui.path` | `/ui` | URL prefix the SPA is mounted under. Baked into the served `index.html` (and returned as `basePath` from `GET /api/config`) so the client uses it as its React Router `basename` and deep-link prefix; the bare root redirects here. Set to `/` to mount at the web root. |
 | `onec.ui.read-only` | `false` | When `true`, every mutating REST call (POST/PUT/DELETE and post/unpost) returns `403 UI is in read-only mode`. |
 | `onec.ui.settings.enabled` | `false` | Opt-in switch for the built-in Settings page (the `@Constant` editor) and its auto-injected admin nav entry. Off by default; an app that wants app-wide settings turns it on (or authors its own `Page` at `/settings`). |
 | `onec.ui.theme.*` | empty map | Free-form theme key/value pairs, served verbatim from `GET /api/theme`. |
@@ -270,22 +270,38 @@ files); `redirect` replaces the current page so a provider round-trip lands back
 
 ### Comments — `/api/comments`
 
-Every catalog and document detail surface carries a **discussion thread**: a feed of authored,
+A catalog or document detail surface can carry a **discussion thread**: a feed of authored,
 timestamped comments with a compose box, rendered by the `onec-comments` DivKit panel. Comments are
 framework infrastructure, not modelled entities — they live in the framework-owned `onec_comments`
-table (created at startup, never shown in the nav), so *any* entity gets the feature with no
+table (created at startup, never shown in the nav), so any entity can get the feature with no
 per-entity modelling. Each author's avatar resolves from the identity catalog's avatar-hinted
 attribute (falling back to initials).
 
+Comments are **opt-in per entity**, and off by default. An entity gets a thread only when its
+`EntityView` turns it on — so you choose exactly which catalogs/documents support discussions:
+
+```java
+@Component
+public class BookingView implements EntityView {
+    @Override public Class<?> entity() { return Booking.class; }
+    @Override public boolean comments() { return true; }   // off by default; opt in here
+}
+```
+
+The opt-in is resolved at the entity level (if any of an entity's profile views opts in, its detail
+carries the panel). An entity that hasn't opted in shows no panel, and its `/api/comments/...`
+endpoints return **404** — the comment surface doesn't exist there.
+
 | Method | Path | Notes |
 |--------|------|-------|
-| GET | `/api/comments/{kind}/{name}/{id}` | The thread for one record, oldest first. `{kind}` is `catalogs`/`documents`. |
+| GET | `/api/comments/{kind}/{name}/{id}` | The thread for one record, oldest first. `{kind}` is `catalogs`/`documents`. `404` if the entity hasn't opted into comments. |
 | POST | `/api/comments/{kind}/{name}/{id}` | Add a comment — body `{ "body": "…" }`. The author is stamped from the session ([CurrentUserResolver](src/main/java/com/onec/ui/CurrentUserResolver.java)); the client never asserts identity. |
 | DELETE | `/api/comments/{commentId}` | Soft-delete (kept for audit). Author or `ADMIN` only. |
 
-Reading and posting are gated on **read** access to the owning entity — if you can open the record
-you can comment on it. Disable the whole feature with `onec.comments.enabled=false`; cap body length
-with `onec.comments.max-length` (default 4000).
+Reading and posting are gated on **read** access to the owning entity (and on the entity's opt-in
+above) — if you can open the record and the entity supports comments, you can comment on it.
+`onec.comments.enabled=false` is the global kill switch (drops the endpoint, table, and panel
+everywhere); `onec.comments.max-length` caps body length (default 4000).
 
 ### Misc — `/api`
 
@@ -368,13 +384,24 @@ onec:
         roles: [ADMIN]
 ```
 
-## SPA routing and the index fallback
+## SPA routing, the base path, and the index fallback
 
-`SpaIndexController` serves `static/ui/index.html` at `/`, and `SpaResourceResolver` (registered on
-`/**`) falls back to `index.html` for any path that doesn't match a real static asset, so React
-Router can handle client-side deep links.
+The SPA is mounted under `onec.ui.path` (default `/ui`). The server bakes that prefix into the
+served `index.html` — replacing the `__ONEC_BASE_PATH__` placeholder with a `window.__onecBasePath`
+value — so the web client adopts it synchronously as its React Router `basename` ([base-path.ts](src/main/frontend/src/lib/base-path.ts))
+before routing or any deep-link fetch happens. Because React Router strips the `basename` from
+`useLocation().pathname`, in-app routes and the `/api/divkit{path}` calls they drive stay
+prefix-relative while the browser URL carries the prefix (e.g. `/ui/catalogs/Properties`).
 
-> **Gotcha:** because of this fallback, an unknown path under the SPA returns `index.html` with
+`SpaResourceResolver` (registered on `/**`) falls back to that injected `index.html` for any path
+that isn't a real static asset, so client-side **deep links cold-load** straight onto their surface.
+`SpaIndexController` serves the root: when a base path is configured it redirects `/` → the base
+path (React Router renders nothing for a URL outside its `basename`, so the bare root must bounce
+into it); when `onec.ui.path` is `/` it serves the shell directly. Assets (JS/CSS/icons) are served
+from `classpath:/static/ui/` at the web root regardless of the base path, so they load at any route
+depth.
+
+> **Gotcha:** because of the fallback, an unknown path under the SPA returns `index.html` with
 > **HTTP 200**, not a `404`. A mistyped non-`/api` URL looks "successful" and renders the SPA shell.
 > Only `/api/**` paths produce real `404`/`401`/`403` responses. When debugging, test API URLs, not
 > page URLs.

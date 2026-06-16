@@ -1,8 +1,11 @@
 package com.onec.ui.comments;
 
+import com.onec.ui.CatalogQueryService;
 import com.onec.ui.CurrentUserResolver;
 import com.onec.ui.CurrentUserResolver.CurrentUser;
+import com.onec.ui.DocumentQueryService;
 import com.onec.ui.UiAccessService;
+import com.onec.ui.UiViewResolver;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,15 +44,22 @@ public class CommentController {
     private final CurrentUserResolver currentUser;
     private final CommentAuthorAvatars authorAvatars;
     private final CommentProperties properties;
+    private final UiViewResolver viewResolver;
+    private final CatalogQueryService catalogQuery;
+    private final DocumentQueryService documentQuery;
 
     public CommentController(CommentService comments, UiAccessService access,
                              CurrentUserResolver currentUser, CommentAuthorAvatars authorAvatars,
-                             CommentProperties properties) {
+                             CommentProperties properties, UiViewResolver viewResolver,
+                             CatalogQueryService catalogQuery, DocumentQueryService documentQuery) {
         this.comments = comments;
         this.access = access;
         this.currentUser = currentUser;
         this.authorAvatars = authorAvatars;
         this.properties = properties;
+        this.viewResolver = viewResolver;
+        this.catalogQuery = catalogQuery;
+        this.documentQuery = documentQuery;
     }
 
     /** The request body for posting a comment. */
@@ -65,7 +75,10 @@ public class CommentController {
         Map<String, String> avatars = authorAvatars.avatarsFor(
                 thread.stream().map(Comment::authorId).filter(Objects::nonNull).toList());
         return thread.stream()
-                .map(c -> toJson(c, me, admin, avatars.get(c.authorId())))
+                // authorId is null for authors not linked to an identity record (e.g. the built-in
+                // admin user). avatars is an immutable map whose get(null) throws NPE, so guard the
+                // key — a null-author comment simply has no avatar.
+                .map(c -> toJson(c, me, admin, c.authorId() == null ? null : avatars.get(c.authorId())))
                 .toList();
     }
 
@@ -100,7 +113,12 @@ public class CommentController {
         return ResponseEntity.noContent().build();
     }
 
-    /** Require read access to the owning entity, mapping the route kind to the access type. */
+    /**
+     * Gate a thread request: the kind must be a catalog or document, the caller must have read
+     * access to the owning entity, and that entity must have comments enabled (the per-entity,
+     * opt-in {@link com.onec.ui.EntityView#comments()} switch). A request for an entity that hasn't
+     * opted in is a 404 — the comment surface simply doesn't exist there.
+     */
     private void requireRead(String kind, String name, Principal principal) {
         String type = switch (kind) {
             case "catalogs" -> "catalog";
@@ -113,6 +131,13 @@ public class CommentController {
         if (!access.canRead(principal, type, name)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "Current user is not allowed to read " + type + ": " + name);
+        }
+        Class<?> entity = "catalogs".equals(kind)
+                ? catalogQuery.require(name).javaClass()
+                : documentQuery.require(name).javaClass();
+        if (!viewResolver.commentsEnabled(entity)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Comments are not enabled for " + type + ": " + name);
         }
     }
 

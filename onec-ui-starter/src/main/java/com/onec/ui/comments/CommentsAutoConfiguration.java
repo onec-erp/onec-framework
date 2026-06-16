@@ -1,11 +1,14 @@
 package com.onec.ui.comments;
 
 import com.onec.metadata.MetadataRegistry;
+import com.onec.ui.CatalogQueryService;
 import com.onec.ui.CurrentUserResolver;
+import com.onec.ui.DocumentQueryService;
 import com.onec.ui.FieldHintResolver;
 import com.onec.ui.UiAccessService;
 import com.onec.ui.UiAutoConfiguration;
 import com.onec.ui.UiLayout;
+import com.onec.ui.UiViewResolver;
 
 import org.jdbi.v3.core.Jdbi;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -44,7 +47,10 @@ public class CommentsAutoConfiguration {
     public CommentController commentController(CommentService commentService, UiAccessService access,
                                                CurrentUserResolver currentUserResolver,
                                                CommentAuthorAvatars authorAvatars,
-                                               CommentProperties properties) {
-        return new CommentController(commentService, access, currentUserResolver, authorAvatars, properties);
+                                               CommentProperties properties, UiViewResolver viewResolver,
+                                               CatalogQueryService catalogQuery,
+                                               DocumentQueryService documentQuery) {
+        return new CommentController(commentService, access, currentUserResolver, authorAvatars,
+                properties, viewResolver, catalogQuery, documentQuery);
     }
 }

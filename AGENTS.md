@@ -689,7 +689,7 @@ UI is authored as Java classes registered as Spring beans — never as annotatio
 
 - **`Layout`** — navigation structure + shell (nav presentation) + persona. The default layout (`profile() == null`) is the back-office shell; one per persona declares its roles and curated sections. `configure(LayoutSpec)`: `spec.shell().nav(NavStyle.SIDEBAR)`, `spec.section("Sales").icon("euro").catalog(Customer.class).document(Invoice.class)`.
 - **`Page`** — a route whose content you compose (e.g. a dashboard): `compose(PageBuilder)` with `b.title(...)`, `b.widget(...)`, `b.text(...)`, `b.custom(...)`.
-- **`EntityView`** — per-entity list columns (`list(ListSpec)`) and field hints (`fields(EntityConfigBuilder)`). An entity is only visible if it has an `EntityView` (the view layer is the allowlist).
+- **`EntityView`** — per-entity list columns (`list(ListSpec)`) and field hints (`fields(EntityConfigBuilder)`). An entity is only visible if it has an `EntityView` (the view layer is the allowlist). Override `comments()` to return `true` to opt that catalog/document into the per-entity discussion thread (`/api/comments`); it is off by default and gated by the global `onec.comments.enabled` switch.
 
 Field-hint methods on `FieldHintBuilder` (used inside `EntityView.fields`): `order(int)`, `group(String)`, `width(String)`, `widget(String)`, `placeholder(String)`, `format(String)`, `hint(String)`, `hideInList()`, `hideInForm()`, `hideInDetail()`, plus explicit `visibleInList(bool)`/`visibleInForm(bool)`/`visibleInDetail(bool)`. Only set what differs from the default.
 

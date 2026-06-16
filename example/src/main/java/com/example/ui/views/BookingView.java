@@ -41,6 +41,13 @@ public class BookingView implements EntityView {
         return Booking.class;
     }
 
+    /** Opt this document into the per-entity comment thread (off by default). Staff leave
+     *  handover notes on a booking; CleaningBookingView inherits this opt-in. */
+    @Override
+    public boolean comments() {
+        return true;
+    }
+
     @Override
     public void list(ListSpec list) {
         list.columns("number", "date", "property", "checkIn", "checkOut", "primaryClient", "status", "totalGross")

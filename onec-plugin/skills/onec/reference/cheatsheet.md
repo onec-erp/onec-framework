@@ -144,7 +144,9 @@ AST, a fluent `QueryBuilder`, and a shared `SqlRenderer`. `Ref`-navigation auto-
   `b.widget(title)` → `WidgetBuilder.type(…).width(…).document/catalog(…).config(k,v)`, `b.text`,
   `b.list(entity)`, `b.constants()`, `b.custom(type, payload)`.
 - `EntityView` (non-generic) — `Class<?> entity()` (names the target catalog/document), `profile()`,
-  `list(ListSpec)`, `fields(EntityConfigBuilder)`, `actions(ActionSpec)`, `inputs(InputSpec)`.
+  `list(ListSpec)`, `fields(EntityConfigBuilder)`, `actions(ActionSpec)`, `inputs(InputSpec)`,
+  `comments()` (return `true` to opt this catalog/document into the `/api/comments` discussion
+  thread; off by default, gated by the global `onec.comments.enabled` switch).
   - `ListSpec`: `title`, `searchable/noSearch`, `sortBy(field, desc)`, `columns(...)`,
     `column(field,label)`, `label(field,label)`, `hide(...)`, `filter(field)` → options/contains/dateRange.
   - `ActionSpec`: `action(key)` → `ActionBuilder.label/icon(String)`, `scope(ActionScope.ROW|TOOLBAR|DETAIL)`,
