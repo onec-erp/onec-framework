@@ -108,3 +108,88 @@ configure(subprojects.filter { it.name in publishedModules.keys }) {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Community integrations catalog
+// ---------------------------------------------------------------------------
+// INTEGRATIONS.md is *generated* from community/registry.json (the source of truth). Edit the JSON,
+// then run `./gradlew generateIntegrationsDoc` and commit both files. There is no CI gate — the
+// regenerate step is part of the PR checklist (see CONTRIBUTING.md). Uses Gradle's bundled
+// groovy-json, so it needs no extra dependency.
+tasks.register("generateIntegrationsDoc") {
+    group = "documentation"
+    description = "Regenerate INTEGRATIONS.md from community/registry.json"
+
+    val registryFile = layout.projectDirectory.file("community/registry.json")
+    val outputFile = layout.projectDirectory.file("INTEGRATIONS.md")
+    inputs.file(registryFile)
+    outputs.file(outputFile)
+
+    doLast {
+        @Suppress("UNCHECKED_CAST")
+        val data = groovy.json.JsonSlurper().parse(registryFile.asFile) as Map<String, Any?>
+        @Suppress("UNCHECKED_CAST")
+        val integrations = (data["integrations"] as? List<Map<String, Any?>>).orEmpty()
+
+        // Display order + heading + blurb per category (keys match registry.schema.json).
+        val categories = linkedMapOf(
+            "connector" to ("Connectors" to "Integrations that bind onec to an external system."),
+            "spi" to ("SPI implementations" to "Pluggable implementations of framework contracts (storage, mail, auth, …)."),
+            "ui" to ("UI extensions" to "Custom widgets, pages, and actions."),
+            "skill" to ("Agent skills & plugins" to "Skills/plugins that make AI agents good at a domain."),
+            "library" to ("Libraries & tools" to "General helpers built on the framework.")
+        )
+
+        fun cell(value: Any?): String = (value as? String ?: "").replace("|", "\\|")
+
+        val sb = StringBuilder()
+        sb.appendLine("<!-- GENERATED FILE — do not edit by hand.")
+        sb.appendLine("     Source of truth: community/registry.json")
+        sb.appendLine("     Regenerate:      ./gradlew generateIntegrationsDoc -->")
+        sb.appendLine()
+        sb.appendLine("# Community integrations")
+        sb.appendLine()
+        sb.appendLine("Third-party integrations the community has built on onec-framework. These projects are")
+        sb.appendLine("maintained by their authors and are not endorsed by the onec-framework team — review before use.")
+        sb.appendLine()
+        sb.appendLine("> **Want to add yours?** Build it with [docs/EXTENDING.md](docs/EXTENDING.md), then add an entry")
+        sb.appendLine("> to [`community/registry.json`](community/registry.json) and run `./gradlew generateIntegrationsDoc`.")
+        sb.appendLine("> See [CONTRIBUTING.md](CONTRIBUTING.md#listing-a-community-integration).")
+        sb.appendLine()
+
+        if (integrations.isEmpty()) {
+            sb.appendLine("## No integrations listed yet")
+            sb.appendLine()
+            sb.appendLine("Be the first — see [docs/EXTENDING.md](docs/EXTENDING.md) and open a PR adding your project to")
+            sb.appendLine("[`community/registry.json`](community/registry.json).")
+        } else {
+            for ((key, meta) in categories) {
+                val rows = integrations
+                    .filter { it["category"] == key }
+                    .sortedBy { (it["name"] as? String)?.lowercase() ?: "" }
+                if (rows.isEmpty()) continue
+                sb.appendLine("## ${meta.first}")
+                sb.appendLine()
+                sb.appendLine(meta.second)
+                sb.appendLine()
+                sb.appendLine("| Name | Description | Install | onec | License | Status |")
+                sb.appendLine("| --- | --- | --- | --- | --- | --- |")
+                for (row in rows) {
+                    val name = row["name"] as? String ?: ""
+                    val repo = row["repository"] as? String ?: ""
+                    val nameCell = if (repo.isNotBlank()) "[${cell(name)}]($repo)" else cell(name)
+                    val coords = row["coordinates"] as? String
+                    val install = if (!coords.isNullOrBlank()) "`${coords}`" else "—"
+                    sb.appendLine(
+                        "| $nameCell | ${cell(row["description"])} | $install | " +
+                            "${cell(row["onecVersion"])} | ${cell(row["license"])} | ${cell(row["status"])} |"
+                    )
+                }
+                sb.appendLine()
+            }
+        }
+
+        outputFile.asFile.writeText(sb.toString().trimEnd() + "\n")
+        logger.lifecycle("Wrote ${outputFile.asFile.relativeTo(projectDir)} (${integrations.size} integration(s)).")
+    }
+}
