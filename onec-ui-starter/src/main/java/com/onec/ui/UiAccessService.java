@@ -80,24 +80,34 @@ public class UiAccessService {
     }
 
     public boolean canRead(Principal principal, String type, String name) {
+        // {name} arrives as the route segment (e.g. "properties"), not the descriptor's display
+        // name ("Properties"). Resolve it the same case-/separator-insensitive way the generic
+        // controllers and query services do (see CatalogQueryService), or a perfectly-readable
+        // entity 403s just because its display name isn't already lower-cased.
+        String normalized = normalizeName(name);
         return switch (type) {
             case "catalog" -> registry.allCatalogs().stream()
-                    .filter(d -> d.logicalName().equals(name))
+                    .filter(d -> normalizeName(d.logicalName()).equals(normalized))
                     .findFirst()
                     .map(d -> canRead(principal, d))
                     .orElse(false);
             case "document" -> registry.allDocuments().stream()
-                    .filter(d -> d.logicalName().equals(name))
+                    .filter(d -> normalizeName(d.logicalName()).equals(normalized))
                     .findFirst()
                     .map(d -> canRead(principal, d))
                     .orElse(false);
             case "register" -> registry.allRegisters().stream()
-                    .filter(d -> d.logicalName().equals(name))
+                    .filter(d -> normalizeName(d.logicalName()).equals(normalized))
                     .findFirst()
                     .map(d -> canRead(principal, d))
                     .orElse(false);
             default -> false;
         };
+    }
+
+    /** Strip spaces/underscores and lower-case, matching the generic controllers' {name} lookup. */
+    private static String normalizeName(String name) {
+        return name == null ? "" : name.replace(" ", "").replace("_", "").toLowerCase();
     }
 
     /**

@@ -37,7 +37,7 @@ except Kafka inbound). Standard Spring keys (`spring.datasource.*`, `spring.mail
 | `onec.media.max-file-size` | `DataSize` | `10MB` | Largest single upload accepted. Also raises Spring's 1&nbsp;MB multipart default to match, so uploads up to this size reach the controller instead of being rejected by the container. |
 | `onec.media.public-base-path` | `String` | `/api/media` | URL prefix the filesystem backend builds stored-media URLs from, and the path `GET /api/media/{key}` serves from. Other backends (e.g. S3) ignore it. |
 | `onec.ui.enabled` | `Boolean` | `true` | Master switch for the UI starter. Also gated on a `MetadataRegistry` bean being present. |
-| `onec.ui.path` | `String` | `/ui` | SPA base path, returned as `basePath` from `GET /api/config`. |
+| `onec.ui.path` | `String` | `/ui` | URL prefix the SPA is mounted under. Baked into the served `index.html` (and returned as `basePath` from `GET /api/config`) so the web client adopts it as its router basename and deep-link prefix; the bare root redirects here. Default `/ui`; set to `/` to mount the app at the web root. |
 | `onec.ui.read-only` | `Boolean` | `false` | When true, every mutating REST call is rejected with `403 UI is in read-only mode`. |
 | `onec.ui.settings.enabled` | `Boolean` | `false` | Whether to surface the built-in Settings page and its admin nav entry. |
 | `onec.ui.theme` | `Map<String,String>` | — | Free-form theme key/values served verbatim from `GET /api/theme`. |
