@@ -113,6 +113,33 @@ Both delete paths open the in-app confirmation dialog and then issue `DELETE /ap
 (soft delete), so the server still enforces write access — a read-only user (or one without the
 entity's write role) gets a `403`, never a silent delete.
 
+### Custom & state-aware row actions
+
+An `EntityView.actions(ActionSpec)` declares custom buttons on the list (`ActionScope.TOOLBAR` /
+`ROW`) or the detail surface (`DETAIL`); each runs a server `handler(ctx -> ActionResult)` or
+`navigate(url)`. A **row** action's icon, label, visibility and enabled state may be **functions of
+the row** instead of fixed, so one control adapts to each record — a `pause` "Suspend" on a running
+row flipping to a `play` "Resume" once stopped, or a button shown only where it applies:
+
+```java
+public void actions(ActionSpec a) {
+    a.action("toggle").scope(ActionScope.ROW)
+     .icon(row  -> row.enumValue("status", Status.class) == Status.STOPPED ? "play" : "pause")
+     .label(row -> row.enumValue("status", Status.class) == Status.STOPPED ? "Resume" : "Suspend")
+     .visibleWhen(row -> row.enumValue("status", Status.class) != Status.ARCHIVED)
+     .enabledWhen(row -> row.canToggle())            // any predicate over the row
+     .handler(ctx -> { svc.toggle(ctx.id()); return ActionResult.refresh("Toggled"); });
+}
+```
+
+Each function receives an `ActionRow` — a read-only view of the row the list already rendered
+(`id()`, `text(col)` for the display value, `enumValue(col, Type)` to read an enum column back, or
+`get(col)`/`values()` for the raw map). They're evaluated **server-side per row** as the list page
+is served (no extra query — the row is already in hand) and shipped to the grid under each row's
+`_actions`; the button falls back to the static `icon`/`label` when a function isn't set. Per-row
+functions apply to `ROW` actions only — toolbar/detail buttons have no row context and use the fixed
+icon/label. A static row action (no functions) costs nothing: the list ships its rows untouched.
+
 ## Dashboard widgets
 
 Widgets are authored on a `Page` (or `layout.widget(...)`) with the `WidgetBuilder` DSL and

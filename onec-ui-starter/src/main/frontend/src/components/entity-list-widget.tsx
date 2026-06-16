@@ -56,6 +56,19 @@ export type ListAction = {
   name: string;
 };
 /**
+ * Per-row override for a state-aware row action, computed server-side from the row's data and
+ * carried on the row under {@code _actions} (keyed by action key). Lets one control vary by row:
+ * a different {@code icon}/{@code label} (e.g. pause→play), or {@code visible}/{@code enabled} false
+ * to hide/grey it on rows it doesn't apply to. Any field absent falls back to the static descriptor
+ * (icon/label) or the default (visible/enabled = true).
+ */
+export type RowActionState = {
+  visible?: boolean;
+  enabled?: boolean;
+  icon?: string;
+  label?: string;
+};
+/**
  * A custom toolbar input declared by an EntityView. It doesn't filter the list — its current value
  * is sent with whatever server action button is clicked and reaches the handler via ActionContext.
  */
@@ -806,26 +819,34 @@ export function EntityListWidget({ list }: { list: ListDescriptor }) {
                       <div className="flex items-center justify-end gap-1">
                         {row
                           ? rowActions.map((a) => {
+                              // State-aware row actions: the server attaches a per-row override
+                              // (icon/label/visible/enabled) under `_actions`, computed from the row's
+                              // data. Absent → the action is static and uses its descriptor values.
+                              const st = (row._actions as Record<string, RowActionState> | undefined)?.[a.key];
+                              if (st?.visible === false) return null;
+                              const icon = st?.icon ?? a.icon;
+                              const label = st?.label ?? a.label;
                               const busy = pending.has(`${a.key}:${row._id}`);
+                              const disabled = busy || st?.enabled === false;
                               return (
                                 <button
                                   key={a.key}
                                   type="button"
-                                  disabled={busy}
+                                  disabled={disabled}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     runAction(a, String(row._id));
                                   }}
                                   className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                                  title={a.label}
-                                  aria-label={a.label}
+                                  title={label}
+                                  aria-label={label}
                                 >
                                   {busy ? (
                                     <Loader2 className="size-[15px] animate-spin" aria-hidden="true" />
                                   ) : a.logo ? (
                                     <img src={a.logo} alt="" aria-hidden="true" className="size-[15px] shrink-0 object-contain" />
                                   ) : (
-                                    <DynamicLucide name={a.icon || "zap"} size={15} />
+                                    <DynamicLucide name={icon || "zap"} size={15} />
                                   )}
                                 </button>
                               );
