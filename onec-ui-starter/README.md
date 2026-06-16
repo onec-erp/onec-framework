@@ -17,7 +17,7 @@ exists (contributed by `onec-framework-starter`), and the UI is enabled (the def
 onec:
   ui:
     enabled: true        # default
-    path: /ui            # SPA base path advertised via /api/config
+    path: /ui            # URL prefix the SPA is mounted under (use / for the web root)
     read-only: false     # default; true blocks all mutating REST calls
 ```
 
@@ -35,7 +35,7 @@ controller, and a static-resource handler that serves the bundled frontend from
 | Key | Default | Purpose |
 |-----|---------|---------|
 | `onec.ui.enabled` | `true` | Master switch. Also gated on a `MetadataRegistry` bean being present. |
-| `onec.ui.path` | `/ui` | SPA base path, returned to the client as `basePath` from `GET /api/config`. |
+| `onec.ui.path` | `/ui` | URL prefix the SPA is mounted under. Baked into the served `index.html` (and returned as `basePath` from `GET /api/config`) so the client uses it as its React Router `basename` and deep-link prefix; the bare root redirects here. Set to `/` to mount at the web root. |
 | `onec.ui.read-only` | `false` | When `true`, every mutating REST call (POST/PUT/DELETE and post/unpost) returns `403 UI is in read-only mode`. |
 | `onec.ui.settings.enabled` | `false` | Opt-in switch for the built-in Settings page (the `@Constant` editor) and its auto-injected admin nav entry. Off by default; an app that wants app-wide settings turns it on (or authors its own `Page` at `/settings`). |
 | `onec.ui.theme.*` | empty map | Free-form theme key/value pairs, served verbatim from `GET /api/theme`. |
@@ -377,13 +377,24 @@ onec:
         roles: [ADMIN]
 ```
 
-## SPA routing and the index fallback
+## SPA routing, the base path, and the index fallback
 
-`SpaIndexController` serves `static/ui/index.html` at `/`, and `SpaResourceResolver` (registered on
-`/**`) falls back to `index.html` for any path that doesn't match a real static asset, so React
-Router can handle client-side deep links.
+The SPA is mounted under `onec.ui.path` (default `/ui`). The server bakes that prefix into the
+served `index.html` — replacing the `__ONEC_BASE_PATH__` placeholder with a `window.__onecBasePath`
+value — so the web client adopts it synchronously as its React Router `basename` ([base-path.ts](src/main/frontend/src/lib/base-path.ts))
+before routing or any deep-link fetch happens. Because React Router strips the `basename` from
+`useLocation().pathname`, in-app routes and the `/api/divkit{path}` calls they drive stay
+prefix-relative while the browser URL carries the prefix (e.g. `/ui/catalogs/Properties`).
 
-> **Gotcha:** because of this fallback, an unknown path under the SPA returns `index.html` with
+`SpaResourceResolver` (registered on `/**`) falls back to that injected `index.html` for any path
+that isn't a real static asset, so client-side **deep links cold-load** straight onto their surface.
+`SpaIndexController` serves the root: when a base path is configured it redirects `/` → the base
+path (React Router renders nothing for a URL outside its `basename`, so the bare root must bounce
+into it); when `onec.ui.path` is `/` it serves the shell directly. Assets (JS/CSS/icons) are served
+from `classpath:/static/ui/` at the web root regardless of the base path, so they load at any route
+depth.
+
+> **Gotcha:** because of the fallback, an unknown path under the SPA returns `index.html` with
 > **HTTP 200**, not a `404`. A mistyped non-`/api` URL looks "successful" and renders the SPA shell.
 > Only `/api/**` paths produce real `404`/`401`/`403` responses. When debugging, test API URLs, not
 > page URLs.

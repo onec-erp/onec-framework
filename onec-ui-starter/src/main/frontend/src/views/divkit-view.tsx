@@ -14,6 +14,7 @@ import { api } from "@/lib/api";
 import { useUiEvents } from "@/hooks/use-ui-events";
 import type { UiEvent } from "@/lib/types";
 import { cn, copyToClipboard } from "@/lib/utils";
+import { stripBasePath, withBasePath } from "@/lib/base-path";
 import { ContentPane, type LiveRegistry } from "@/views/content-pane";
 import type { ContentAction } from "@/views/divkit-content";
 import { ICON_CUSTOM_COMPONENTS } from "@/lib/icon-bridge";
@@ -49,7 +50,10 @@ function viewportFor(width: number): Viewport {
 // item colors bind to it server-side (ShellLayoutBuilder.ACTIVE_VAR), so the active
 // highlight follows navigation by updating this variable — no shell re-fetch.
 const navVars = createGlobalVariablesController();
-const activePathVar = createVariable("active_path", "string", window.location.pathname);
+// Server-emitted nav paths are router-relative (e.g. "/catalogs/properties", no base-path prefix),
+// so the seed must be too — strip the prefix off the raw URL. (This initial value is overwritten by
+// the focus effect anyway, which reads the already-stripped useLocation pathname.)
+const activePathVar = createVariable("active_path", "string", stripBasePath(window.location.pathname));
 navVars.setVariable(activePathVar);
 
 type NavStyle = "topbar" | "sidebar" | "bottom_bar";
@@ -146,15 +150,18 @@ function rowOpenPath(rowUrl: string): string {
   return "/" + rowUrl.slice("onec://".length);
 }
 
-// The absolute, shareable URL for an in-app route path. The app uses real browser
-// URLs (BrowserRouter at "/"), so origin + path is a working deep link: pasted into
-// a new tab it lands straight on that surface.
+// The absolute, shareable URL for an in-app route path. The app uses real browser URLs, so
+// origin + the base-path-prefixed path is a working deep link: pasted into a new tab it cold-loads
+// straight onto that surface inside the router's basename. `path` is router-relative (no prefix);
+// withBasePath adds the mount prefix (e.g. "/ui") so the link lands where the router expects it.
 function shareableUrl(path: string): string {
-  return window.location.origin + path;
+  return window.location.origin + withBasePath(path);
 }
 
 function initialWorkspace(): Workspace {
-  const path = window.location.pathname;
+  // Router-relative path (prefix stripped) so the first tab matches the useLocation pathname the
+  // mirror effect compares against — otherwise a cold-loaded deep link would open a duplicate tab.
+  const path = stripBasePath(window.location.pathname);
   const id = newPaneId();
   return { panes: [{ id, tabs: [tabForPath(path)], activePath: path }], sizes: [1], focused: id };
 }

@@ -20,17 +20,25 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @ConditionalOnProperty(prefix = "onec.ui", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class UiAutoConfiguration implements WebMvcConfigurer {
 
+    // The SPA shell with onec.ui.path baked in — shared by the deep-link fallback resolver and the
+    // root controller so both serve a shell that knows the app's mount prefix.
+    private final SpaIndexHtml spaIndexHtml;
+
+    public UiAutoConfiguration(UiProperties uiProperties) {
+        this.spaIndexHtml = new SpaIndexHtml(uiProperties.getPath());
+    }
+
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/**")
                 .addResourceLocations("classpath:/static/ui/")
                 .resourceChain(true)
-                .addResolver(new SpaResourceResolver());
+                .addResolver(new SpaResourceResolver(spaIndexHtml));
     }
 
     @Bean
     public SpaIndexController spaIndexController() {
-        return new SpaIndexController();
+        return new SpaIndexController(spaIndexHtml);
     }
 
     @Bean
