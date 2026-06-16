@@ -170,3 +170,163 @@
 .onec-calendar-widget .fc .fc-timegrid-now-indicator-line {
   border-color: hsl(var(--primary));
 }
+
+/* ---- Mobile agenda -------------------------------------------------------- */
+/* A tap-to-open list that replaces the cramped month grid on phones. */
+.onec-calendar-agenda {
+  display: flex;
+  flex-direction: column;
+}
+
+.onec-agenda-day {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.onec-agenda-day:first-child {
+  border-top: none;
+}
+
+/* Date gutter: weekday over day-of-month, fixed width so events line up. */
+.onec-agenda-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 34px;
+  flex-shrink: 0;
+  padding-top: 2px;
+  line-height: 1;
+}
+
+.onec-agenda-dow {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: hsl(var(--muted-foreground));
+}
+
+.onec-agenda-dom {
+  margin-top: 3px;
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground));
+}
+
+/* Today's date gutter gets a filled pill on the day number. */
+.onec-agenda-date.is-today .onec-agenda-dom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-top: 1px;
+  border-radius: 9999px;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.onec-agenda-date.is-today .onec-agenda-dow {
+  color: hsl(var(--primary));
+}
+
+.onec-agenda-events {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Each event is a full-width tap target. */
+.onec-agenda-event {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 11px 9px 14px;
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--card));
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background-color 120ms ease, border-color 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.onec-agenda-event:active {
+  background: hsl(var(--accent) / 0.5);
+}
+
+/* Status accent down the leading edge. */
+.onec-agenda-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: calc(var(--radius) - 2px) 0 0 calc(var(--radius) - 2px);
+}
+
+.onec-agenda-event.is-posted .onec-agenda-bar {
+  background: hsl(var(--success));
+}
+
+.onec-agenda-event.is-draft .onec-agenda-bar {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+.onec-agenda-avatar {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px hsl(var(--border));
+}
+
+.onec-agenda-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 1px;
+}
+
+.onec-agenda-primary {
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.onec-agenda-secondary {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.onec-agenda-amount {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground));
+}
+
+.onec-agenda-empty {
+  padding: 32px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+}

@@ -11,7 +11,7 @@ import type {
 } from "@fullcalendar/core";
 import type { EventResizeDoneArg } from "@fullcalendar/interaction";
 import { useNavigate } from "react-router-dom";
-import { format, endOfMonth, startOfMonth } from "date-fns";
+import { format, endOfMonth, startOfMonth, addMonths, subMonths } from "date-fns";
 import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -36,6 +36,26 @@ interface EventExtendedProps {
   hasEnd?: boolean;
   avatarUrl?: string;
   avatarLabel?: string;
+}
+
+// The 7-column month grid is unusable on a phone — each day is ~50px wide and
+// every booking renders as a full bar, so the widget falls back to a tap-to-open
+// agenda list below this width. Matches the app's server-side MOBILE_MAX so the
+// agenda shows exactly where the mobile dashboard does.
+const MOBILE_MAX = 600;
+
+function useIsMobile(maxWidth = MOBILE_MAX): boolean {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(`(max-width: ${maxWidth}px)`).matches
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const onChange = () => setIsMobile(mql.matches);
+    onChange();
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, [maxWidth]);
+  return isMobile;
 }
 
 function hashHue(input: string | undefined | null): number | null {
@@ -74,9 +94,13 @@ function pickField(row: EntityRecord, fields: string[]): string | undefined {
 export function CalendarWidget({ widget }: CalendarWidgetProps) {
   const navigate = useNavigate();
   const calendarRef = useRef<FullCalendar | null>(null);
+  const isMobile = useIsMobile();
   const [items, setItems] = useState<EntityRecord[]>([]);
   const [title, setTitle] = useState("");
   const [view, setView] = useState<"dayGridMonth" | "timeGridWeek">("dayGridMonth");
+  // On mobile the agenda owns navigation (FullCalendar isn't mounted to emit
+  // datesSet), so the focused month is tracked here and drives the fetch range.
+  const [anchor, setAnchor] = useState(() => new Date());
 
   const readOnly =
     String(widget.extraConfig?.readOnly ?? "").toLowerCase() === "true";
@@ -88,6 +112,16 @@ export function CalendarWidget({ widget }: CalendarWidgetProps) {
       to: format(endOfMonth(now), "yyyy-MM-dd'T'23:59:59"),
     };
   });
+
+  // Drive the range + title from the anchor month while in the mobile agenda.
+  useEffect(() => {
+    if (!isMobile) return;
+    setTitle(format(anchor, "MMMM yyyy"));
+    setRange({
+      from: format(startOfMonth(anchor), "yyyy-MM-dd'T'00:00:00"),
+      to: format(endOfMonth(anchor), "yyyy-MM-dd'T'23:59:59"),
+    });
+  }, [isMobile, anchor]);
 
   useEffect(() => {
     const name = toSnakeCase(widget.entityName);
@@ -185,6 +219,36 @@ export function CalendarWidget({ widget }: CalendarWidgetProps) {
     [items, dateField, titleField, secondaryFieldList, endDateField, durationField, allDay, colorByField, amountField]
   );
 
+  // Events grouped by start day, ascending — the source for the mobile agenda.
+  const agendaDays = useMemo(() => {
+    const groups = new Map<string, EventInput[]>();
+    for (const ev of events) {
+      if (!ev.start) continue;
+      const key = format(new Date(ev.start as string), "yyyy-MM-dd");
+      const bucket = groups.get(key);
+      if (bucket) bucket.push(ev);
+      else groups.set(key, [ev]);
+    }
+    return [...groups.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, evs]) => ({ key, date: new Date(`${key}T00:00:00`), events: evs }));
+  }, [events]);
+
+  const fmtAmount = (ext: EventExtendedProps) =>
+    formatAmount(ext.amount as number, {
+      currency: ext.currency,
+      unit: widget.extraConfig?.unit,
+      unitPosition: widget.extraConfig?.unitPosition,
+      format: widget.extraConfig?.format,
+      locale: widget.extraConfig?.locale,
+    });
+
+  const openEvent = (id: string | undefined) => {
+    if (widget.entityType === "document" && id) {
+      navigate(`/documents/${toSnakeCase(widget.entityName)}/${id}`);
+    }
+  };
+
   const renderEvent = (arg: EventContentArg): { domNodes?: Node[]; html?: string } | ReactNode => {
     const ext = arg.event.extendedProps as EventExtendedProps;
     const isMonth = arg.view.type === "dayGridMonth";
@@ -221,23 +285,71 @@ export function CalendarWidget({ widget }: CalendarWidgetProps) {
           <span className="truncate text-[10px] opacity-80">{ext.secondary}</span>
         )}
         {typeof ext.amount === "number" && (
-          <span className="text-[10px] tabular-nums opacity-70">
-            {formatAmount(ext.amount, {
-              currency: ext.currency,
-              unit: widget.extraConfig?.unit,
-              unitPosition: widget.extraConfig?.unitPosition,
-              format: widget.extraConfig?.format,
-              locale: widget.extraConfig?.locale,
-            })}
-          </span>
+          <span className="text-[10px] tabular-nums opacity-70">{fmtAmount(ext)}</span>
         )}
       </div>
     );
   };
 
-  const goPrev = () => calendarRef.current?.getApi().prev();
-  const goNext = () => calendarRef.current?.getApi().next();
-  const goToday = () => calendarRef.current?.getApi().today();
+  // Tap-to-open agenda for phones: a day-grouped list instead of the dense grid.
+  const renderAgenda = () => {
+    if (agendaDays.length === 0) {
+      return (
+        <div className="onec-agenda-empty">No {widget.entityName.toLowerCase()} this month.</div>
+      );
+    }
+    const today = format(new Date(), "yyyy-MM-dd");
+    return (
+      <div className="onec-calendar-agenda">
+        {agendaDays.map((day) => (
+          <div key={day.key} className="onec-agenda-day">
+            <div className={cn("onec-agenda-date", day.key === today && "is-today")}>
+              <span className="onec-agenda-dow">{format(day.date, "EEE")}</span>
+              <span className="onec-agenda-dom">{format(day.date, "d")}</span>
+            </div>
+            <div className="onec-agenda-events">
+              {day.events.map((ev) => {
+                const ext = ev.extendedProps as EventExtendedProps;
+                const line1 = ext.secondary || ext.primary;
+                const line2 = ext.secondary ? ext.primary : undefined;
+                return (
+                  <button
+                    key={String(ev.id)}
+                    type="button"
+                    className={cn("onec-agenda-event", ext.posted ? "is-posted" : "is-draft")}
+                    onClick={() => openEvent(ev.id ? String(ev.id) : undefined)}
+                  >
+                    <span className="onec-agenda-bar" aria-hidden />
+                    {ext.avatarUrl ? (
+                      <img
+                        src={ext.avatarUrl}
+                        alt=""
+                        className="onec-agenda-avatar"
+                      />
+                    ) : null}
+                    <span className="onec-agenda-text">
+                      <span className="onec-agenda-primary">{line1}</span>
+                      {line2 && <span className="onec-agenda-secondary">{line2}</span>}
+                    </span>
+                    {typeof ext.amount === "number" && (
+                      <span className="onec-agenda-amount">{fmtAmount(ext)}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const goPrev = () =>
+    isMobile ? setAnchor((a) => subMonths(a, 1)) : calendarRef.current?.getApi().prev();
+  const goNext = () =>
+    isMobile ? setAnchor((a) => addMonths(a, 1)) : calendarRef.current?.getApi().next();
+  const goToday = () =>
+    isMobile ? setAnchor(new Date()) : calendarRef.current?.getApi().today();
   const switchView = (v: typeof view) => {
     setView(v);
     calendarRef.current?.getApi().changeView(v);
@@ -314,30 +426,33 @@ export function CalendarWidget({ widget }: CalendarWidgetProps) {
           <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{title}</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-md border border-border p-0.5">
-            <button
-              onClick={() => switchView("dayGridMonth")}
-              className={cn(
-                "rounded-sm px-2 py-0.5 text-[11px] font-medium transition-colors",
-                view === "dayGridMonth"
-                  ? "bg-accent text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Month
-            </button>
-            <button
-              onClick={() => switchView("timeGridWeek")}
-              className={cn(
-                "rounded-sm px-2 py-0.5 text-[11px] font-medium transition-colors",
-                view === "timeGridWeek"
-                  ? "bg-accent text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Week
-            </button>
-          </div>
+          {/* The month/week grid toggle is grid-only; the mobile agenda hides it. */}
+          {!isMobile && (
+            <div className="flex rounded-md border border-border p-0.5">
+              <button
+                onClick={() => switchView("dayGridMonth")}
+                className={cn(
+                  "rounded-sm px-2 py-0.5 text-[11px] font-medium transition-colors",
+                  view === "dayGridMonth"
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Month
+              </button>
+              <button
+                onClick={() => switchView("timeGridWeek")}
+                className={cn(
+                  "rounded-sm px-2 py-0.5 text-[11px] font-medium transition-colors",
+                  view === "timeGridWeek"
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Week
+              </button>
+            </div>
+          )}
           <Button variant="outline" size="sm" className="h-7 px-2" onClick={goToday}>
             Today
           </Button>
@@ -363,31 +478,35 @@ export function CalendarWidget({ widget }: CalendarWidgetProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="px-3 pb-3">
-        <FullCalendar
-          ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView="dayGridMonth"
-          headerToolbar={false}
-          height="auto"
-          firstDay={1}
-          events={events}
-          editable={editable}
-          eventStartEditable={editable}
-          eventDurationEditable={editable}
-          eventResizableFromStart={editable}
-          datesSet={handleDatesSet}
-          eventTimeFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
-          eventContent={renderEvent}
-          eventDrop={handleEventDrop}
-          eventResize={handleEventResize}
-          eventClick={(info) => {
-            if (widget.entityType === "document" && info.event.id) {
-              navigate(`/documents/${toSnakeCase(widget.entityName)}/${info.event.id}`);
-            }
-          }}
-          dayMaxEventRows={false}
-        />
+      <CardContent className={cn(isMobile ? "px-0 pb-1" : "px-3 pb-3")}>
+        {isMobile ? (
+          renderAgenda()
+        ) : (
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            headerToolbar={false}
+            height="auto"
+            firstDay={1}
+            events={events}
+            editable={editable}
+            eventStartEditable={editable}
+            eventDurationEditable={editable}
+            eventResizableFromStart={editable}
+            datesSet={handleDatesSet}
+            eventTimeFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
+            eventContent={renderEvent}
+            eventDrop={handleEventDrop}
+            eventResize={handleEventResize}
+            eventClick={(info) => {
+              if (widget.entityType === "document" && info.event.id) {
+                navigate(`/documents/${toSnakeCase(widget.entityName)}/${info.event.id}`);
+              }
+            }}
+            dayMaxEventRows={false}
+          />
+        )}
       </CardContent>
     </Card>
   );
