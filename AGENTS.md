@@ -62,10 +62,17 @@ change** — stale docs are how every drift bug here started (e.g. a long-gone `
 endpoint and an `onec.base-packages` property that never existed for the core scan). When a doc and the
 code disagree, the code wins: fix the doc, don't propagate the claim.
 
+**[docs/CONFIGURATION.md](docs/CONFIGURATION.md) is generated — do not hand-edit it.** Its tables are
+rendered from each starter's `spring-configuration-metadata.json` (the `@ConfigurationProperties`
+field Javadoc). To change a row, edit the property's Javadoc — or, for a default the processor can't
+see, that module's `META-INF/additional-spring-configuration-metadata.json` — then run
+`./gradlew generateConfigDocs`. Editorial prose around the tables lives in `docs/_config/`.
+`./gradlew check` runs `checkConfigDocs` and **fails** if the committed file drifts from the metadata.
+
 | If you change… | Update |
 | --- | --- |
 | an annotation, model base class, or lifecycle interface | this file, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and [`onec-plugin/skills/onec/reference/cheatsheet.md`](onec-plugin/skills/onec/reference/cheatsheet.md) |
-| a `@ConfigurationProperties` field (any `onec.*`) | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) and the owning module README |
+| a `@ConfigurationProperties` field (any `onec.*`) | edit the field's **Javadoc**, then `./gradlew generateConfigDocs` (regenerates [docs/CONFIGURATION.md](docs/CONFIGURATION.md)); update the owning module README if it documents the property |
 | a REST endpoint or its response contract | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/HEADLESS_READ_API.md](docs/HEADLESS_READ_API.md), and the module README |
 | the module set or open-core boundary | [README.md](README.md), this file, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/licensing/MODULE-SPLIT-PLAN.md](docs/licensing/MODULE-SPLIT-PLAN.md) |
 | an extension surface, naming/namespace conventions, or the community registry | [docs/EXTENDING.md](docs/EXTENDING.md), [README.md](README.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); regenerate [INTEGRATIONS.md](INTEGRATIONS.md) from [community/registry.json](community/registry.json) (`./gradlew generateIntegrationsDoc`) |
