@@ -38,6 +38,10 @@ except Kafka inbound). Standard Spring keys (`spring.datasource.*`, `spring.mail
 | `onec.ui.path` | `String` | `/ui` | SPA base path, returned as `basePath` from `GET /api/config`. |
 | `onec.ui.read-only` | `Boolean` | `false` | When true, every mutating REST call is rejected with `403 UI is in read-only mode`. |
 | `onec.ui.theme` | `Map<String,String>` | — | Free-form theme key/values served verbatim from `GET /api/theme`. |
+| `onec.ui.update-check.enabled` | `Boolean` | `true` | Master switch. When false no outbound call is ever made and the notice never appears. |
+| `onec.ui.update-check.initial-delay` | `Duration` | `1m` | Delay before the first check, so startup is never blocked on a network round-trip. |
+| `onec.ui.update-check.interval` | `Duration` | `24h` | How often to poll after the first check. Floored at 60s. |
+| `onec.ui.update-check.url` | `String` | `https://cloud.onno.su/releases/v1/latest` | The onec-cloud endpoint that announces the latest release (see onec-cloud's ReleaseController). |
 
 ## Auth — `onec-auth-starter` (`OnecAuthProperties`, prefix `onec.auth`)
 
