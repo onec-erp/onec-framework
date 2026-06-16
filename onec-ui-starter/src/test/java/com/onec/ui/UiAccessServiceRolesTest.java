@@ -1,6 +1,8 @@
 package com.onec.ui;
 
+import com.onec.metadata.CatalogDescriptor;
 import com.onec.metadata.DocumentDescriptor;
+import com.onec.metadata.MetadataRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -94,5 +96,35 @@ class UiAccessServiceRolesTest {
     @Test
     void nullPrincipalAndEmptyContextResolvesToNoRoles() {
         assertThat(access.roles(null)).isEmpty();
+    }
+
+    /**
+     * The #127 regression: the name-based read check (used by the comment endpoint, which passes a
+     * route slug like {@code bank_accounts}) must resolve the same descriptor the detail routes do.
+     * It matched {@code logicalName()} exactly, so a slug never equalled the logical name — the
+     * descriptor was "not found" and the check 403'd every caller, ADMIN included. Names are now
+     * matched normalized (space/underscore/case-insensitive), mirroring {@code CatalogQueryService}.
+     */
+    @Test
+    void nameBasedReadResolvesRouteSlugAcrossNameForms() {
+        MetadataRegistry registry = new MetadataRegistry();
+        // logicalName ("Bank Accounts") deliberately differs from the route slug ("bank_accounts").
+        registry.registerCatalog(new CatalogDescriptor(
+                "Bank Accounts", "Bank Accounts", "bank_accounts", Object.class,
+                12, false, true, "BA-", "Rentals",
+                List.of("FINANCE"), List.of("FINANCE"), List.of()));
+        UiAccessService withRegistry = new UiAccessService(registry);
+
+        // The route slug resolves despite differing from logicalName...
+        assertThat(withRegistry.canRead(token("admin", "ADMIN"), "catalog", "bank_accounts"))
+                .as("ADMIN superuser, descriptor resolved by normalized slug").isTrue();
+        assertThat(withRegistry.canRead(token("finance", "FINANCE"), "catalog", "bank_accounts"))
+                .as("holds the FINANCE read role").isTrue();
+        assertThat(withRegistry.canRead(token("rentals", "RENTALS"), "catalog", "bank_accounts"))
+                .as("descriptor resolved but role denied — a real deny, not a not-found").isFalse();
+        // ...as do the display-name and logical-name forms.
+        assertThat(withRegistry.canRead(token("finance", "FINANCE"), "catalog", "Bank Accounts")).isTrue();
+        // An unknown name still denies.
+        assertThat(withRegistry.canRead(token("admin", "ADMIN"), "catalog", "nope")).isFalse();
     }
 }

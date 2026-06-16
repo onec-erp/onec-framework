@@ -80,24 +80,37 @@ public class UiAccessService {
     }
 
     public boolean canRead(Principal principal, String type, String name) {
+        String normalized = normalizeName(name);
         return switch (type) {
             case "catalog" -> registry.allCatalogs().stream()
-                    .filter(d -> d.logicalName().equals(name))
+                    .filter(d -> normalizeName(d.logicalName()).equals(normalized))
                     .findFirst()
                     .map(d -> canRead(principal, d))
                     .orElse(false);
             case "document" -> registry.allDocuments().stream()
-                    .filter(d -> d.logicalName().equals(name))
+                    .filter(d -> normalizeName(d.logicalName()).equals(normalized))
                     .findFirst()
                     .map(d -> canRead(principal, d))
                     .orElse(false);
             case "register" -> registry.allRegisters().stream()
-                    .filter(d -> d.logicalName().equals(name))
+                    .filter(d -> normalizeName(d.logicalName()).equals(normalized))
                     .findFirst()
                     .map(d -> canRead(principal, d))
                     .orElse(false);
             default -> false;
         };
+    }
+
+    /**
+     * Normalize an entity name for matching: strip spaces/underscores and lowercase, so a route slug
+     * ({@code bank_accounts}), a display name ({@code "Bank Accounts"}), and a logical name all
+     * resolve to the same descriptor. Mirrors {@link CatalogQueryService#require} /
+     * {@code DocumentQueryService} so the name-based access check resolves the same descriptor the
+     * detail routes do. Without it a route slug never equals {@code logicalName()} exactly, so the
+     * comment endpoint's read check 403s every caller — ADMIN included (see #127).
+     */
+    private static String normalizeName(String name) {
+        return name == null ? "" : name.replace("_", "").replace(" ", "").toLowerCase(Locale.ROOT);
     }
 
     /**

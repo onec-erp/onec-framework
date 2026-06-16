@@ -111,7 +111,10 @@ export function EntityCommentsWidget({ target }: { target: CommentTarget }) {
   const count = comments?.length ?? 0;
 
   return (
-    <div className="mt-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
+    // pointer-events-auto: this widget is portaled into a DivKit div-custom whose container blocks
+    // are rendered pointer-events:none; opt the panel back in so the textarea and Send button are
+    // focusable/clickable (matches entity-list-widget, page-actions-bar, constants-editor, login).
+    <div className="pointer-events-auto mt-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div className="mb-3 flex items-center gap-2">
         <MessageSquare className="size-4 text-muted-foreground" aria-hidden="true" />
         <h2 className="text-sm font-semibold text-foreground">Comments</h2>
@@ -180,7 +183,9 @@ export function EntityCommentsWidget({ target }: { target: CommentTarget }) {
           onClick={submit}
           disabled={busy || body.trim() === ""}
           className={cn(
-            "inline-flex h-10 items-center gap-1.5 rounded-md bg-primary px-3.5 text-sm font-medium",
+            // shrink-0 + whitespace-nowrap: the textarea is w-full, so without these the button is
+            // squeezed below its content width in a narrow pane and the label wraps ("Sen d").
+            "inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-primary px-3.5 text-sm font-medium",
             "text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           )}
         >
