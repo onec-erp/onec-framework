@@ -18,6 +18,13 @@ public class ClientView implements EntityView {
         return Client.class;
     }
 
+    /** Opt this catalog into the per-entity comment thread (off by default elsewhere — e.g. Bills,
+     *  Payments, Bank Accounts carry no comments), so staff can keep notes on a guest. */
+    @Override
+    public boolean comments() {
+        return true;
+    }
+
     @Override
     public void fields(EntityConfigBuilder f) {
         f.field("firstName").order(0)

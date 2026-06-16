@@ -14,6 +14,13 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 
+/**
+ * Billed revenue per property — a {@link AccumulationType#TURNOVER} register (period totals, not a
+ * balance). {@link com.example.domain.documents.Bill} posts net / IVA / gross here, so the
+ * dashboard's "Revenue by property" and "Revenue over time" widgets can chart it without scanning
+ * the source documents. Sliced by {@code property} ({@code @Dimension}); the money columns are the
+ * accumulated {@code @Resource}s.
+ */
 @AccumulationRegister(name = "Revenue", type = AccumulationType.TURNOVER, context = "Rentals")
 @AccessControl(readRoles = {"RENTALS", "FINANCE"})
 @Getter

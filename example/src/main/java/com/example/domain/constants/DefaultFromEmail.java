@@ -5,6 +5,11 @@ import com.onec.annotations.Constant;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * Default "from" address for outgoing mail (e.g. the booking-confirmed template), a single global
+ * {@code @Constant} (see {@link CompanyName} for the concept). Mirrors {@code onec.mail.default-from}
+ * in {@code application.yaml} but is editable at runtime on the Settings page.
+ */
 @Constant(name = "DefaultFromEmail")
 @Getter
 @Setter

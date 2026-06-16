@@ -14,6 +14,16 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 
+/**
+ * Occupancy totals per property — a {@link AccumulationType#TURNOVER} register: it sums period
+ * activity (how many nights/guests in a span), not a running balance. {@link com.example.domain.documents.Booking}
+ * writes into it on posting (one {@code addReceipt} per booking).
+ *
+ * <p>A register is a typed ledger. A {@code @Dimension} is what you slice by (here, the property);
+ * a {@code @Resource} is a number that accumulates (nights, adults, children). The framework
+ * generates the table and the server-side aggregation behind {@code /api/registers/Occupancy},
+ * which the Reports nav entry and the dashboard charts read.</p>
+ */
 @AccumulationRegister(name = "Occupancy", type = AccumulationType.TURNOVER, context = "Rentals")
 @AccessControl(readRoles = {"RENTALS", "FINANCE"})
 @Getter

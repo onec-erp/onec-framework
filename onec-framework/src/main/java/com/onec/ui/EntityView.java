@@ -76,4 +76,22 @@ public interface EntityView {
      * </pre>
      */
     default void inputs(InputSpec inputs) {}
+
+    /**
+     * Whether this entity gets a discussion thread (the {@code /api/comments} panel) on its detail
+     * surface. Opt-in and per-entity: the default is {@code false}, so an entity has no comments
+     * until a view turns them on — you choose exactly which catalogs/documents support discussions.
+     * The global {@code onec.comments.enabled} switch still gates the feature as a whole; this picks
+     * where it appears. Override to opt in:
+     *
+     * <pre>
+     * &#64;Override public boolean comments() { return true; }
+     * </pre>
+     *
+     * <p>Resolved per entity (not per profile): if any of an entity's views opts in, its detail
+     * carries the panel.</p>
+     */
+    default boolean comments() {
+        return false;
+    }
 }

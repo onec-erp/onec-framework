@@ -279,22 +279,38 @@ files); `redirect` replaces the current page so a provider round-trip lands back
 
 ### Comments — `/api/comments`
 
-Every catalog and document detail surface carries a **discussion thread**: a feed of authored,
+A catalog or document detail surface can carry a **discussion thread**: a feed of authored,
 timestamped comments with a compose box, rendered by the `onec-comments` DivKit panel. Comments are
 framework infrastructure, not modelled entities — they live in the framework-owned `onec_comments`
-table (created at startup, never shown in the nav), so *any* entity gets the feature with no
+table (created at startup, never shown in the nav), so any entity can get the feature with no
 per-entity modelling. Each author's avatar resolves from the identity catalog's avatar-hinted
 attribute (falling back to initials).
 
+Comments are **opt-in per entity**, and off by default. An entity gets a thread only when its
+`EntityView` turns it on — so you choose exactly which catalogs/documents support discussions:
+
+```java
+@Component
+public class BookingView implements EntityView {
+    @Override public Class<?> entity() { return Booking.class; }
+    @Override public boolean comments() { return true; }   // off by default; opt in here
+}
+```
+
+The opt-in is resolved at the entity level (if any of an entity's profile views opts in, its detail
+carries the panel). An entity that hasn't opted in shows no panel, and its `/api/comments/...`
+endpoints return **404** — the comment surface doesn't exist there.
+
 | Method | Path | Notes |
 |--------|------|-------|
-| GET | `/api/comments/{kind}/{name}/{id}` | The thread for one record, oldest first. `{kind}` is `catalogs`/`documents`. |
+| GET | `/api/comments/{kind}/{name}/{id}` | The thread for one record, oldest first. `{kind}` is `catalogs`/`documents`. `404` if the entity hasn't opted into comments. |
 | POST | `/api/comments/{kind}/{name}/{id}` | Add a comment — body `{ "body": "…" }`. The author is stamped from the session ([CurrentUserResolver](src/main/java/com/onec/ui/CurrentUserResolver.java)); the client never asserts identity. |
 | DELETE | `/api/comments/{commentId}` | Soft-delete (kept for audit). Author or `ADMIN` only. |
 
-Reading and posting are gated on **read** access to the owning entity — if you can open the record
-you can comment on it. Disable the whole feature with `onec.comments.enabled=false`; cap body length
-with `onec.comments.max-length` (default 4000).
+Reading and posting are gated on **read** access to the owning entity (and on the entity's opt-in
+above) — if you can open the record and the entity supports comments, you can comment on it.
+`onec.comments.enabled=false` is the global kill switch (drops the endpoint, table, and panel
+everywhere); `onec.comments.max-length` caps body length (default 4000).
 
 ### Misc — `/api`
 

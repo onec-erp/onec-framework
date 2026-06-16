@@ -180,7 +180,7 @@ contract (column-name keys, `{col}_display`/`{col}_ref` expansion, `__SECRET_SET
 | Settings | `GET`/`PUT /api/settings` — `@Constant` values, ADMIN (ui-starter) |
 | Actions | `POST /api/actions/{kind}/{name}/{key}` — authored toolbar/row/detail actions (ui-starter) |
 | Media | `POST /api/media`, `GET /api/media/{key}` — uploads ([MEDIA_UPLOADS.md](MEDIA_UPLOADS.md)) (ui-starter) |
-| Comments | `GET`/`POST /api/comments/{kind}/{name}/{id}`, `DELETE /api/comments/{commentId}` — per-entity discussion threads, gated on read access to the entity (ui-starter) |
+| Comments | `GET`/`POST /api/comments/{kind}/{name}/{id}`, `DELETE /api/comments/{commentId}` — discussion threads, opt-in per entity via `EntityView.comments()` (404 otherwise), gated on read access to the entity (ui-starter) |
 | DivKit UI | `GET /api/divkit/{shell,home,menu,account,settings}` and `/api/divkit/{catalogs,documents}/{name}[/{id}|/new|/{id}/edit]`, `/api/divkit/registers/{name}` (ui-starter) |
 | Theme/config | `GET /api/theme`, `GET /api/config`, `GET /api/branding` (ui-starter) |
 | Events | `GET /api/events` — SSE stream of CRUD/posting changes (ui-starter) |

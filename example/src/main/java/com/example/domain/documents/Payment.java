@@ -21,6 +21,13 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.util.List;
 
+/**
+ * Money received from a client — the document that closes the bill→pay loop. On posting it moves two
+ * {@code BALANCE} registers in tandem: it lowers {@link ReceivablesRegister} ({@code addExpense} — the
+ * client owes less) and, when an account is named, raises {@link BankBalanceRegister}
+ * ({@code addReceipt} — cash collected). See {@link #handlePosting}. Unlike {@link Bill} and
+ * {@link Booking} it needs no {@code beforeWrite} — there are no derived fields to compute.
+ */
 @Document(name = "Payments", numberPrefix = "PMT-", numberLength = 14, context = "Rentals")
 @AccessControl(readRoles = {"RENTALS", "FINANCE"}, writeRoles = {"FINANCE"})
 @Getter

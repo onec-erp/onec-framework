@@ -486,7 +486,7 @@ public class DivKitController {
                 meta, catalogQuery.get(desc, id),
                 relatedLists.preloadForDetail(desc.javaClass(), id, principal), actions,
                 palette(theme));
-        if (commentsEnabled()) {
+        if (commentsEnabled() && viewResolver.commentsEnabled(desc.javaClass())) {
             content = SurfaceDivBuilder.withComments(content, "catalogs", name, id.toString());
         }
         return DivCard.of("onec-content", content);
@@ -586,7 +586,7 @@ public class DivKitController {
         Map<String, Object> content = SurfaceDivBuilder.documentDetail(
                 meta, row, relatedLists.preloadForDetail(desc.javaClass(), id, principal), actions,
                 palette(theme));
-        if (commentsEnabled()) {
+        if (commentsEnabled() && viewResolver.commentsEnabled(desc.javaClass())) {
             content = SurfaceDivBuilder.withComments(content, "documents", name, id.toString());
         }
         return DivCard.of("onec-content", content);

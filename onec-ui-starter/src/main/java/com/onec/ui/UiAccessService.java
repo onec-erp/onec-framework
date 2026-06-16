@@ -83,7 +83,8 @@ public class UiAccessService {
         // {name} arrives as the route segment (e.g. "properties"), not the descriptor's display
         // name ("Properties"). Resolve it the same case-/separator-insensitive way the generic
         // controllers and query services do (see CatalogQueryService), or a perfectly-readable
-        // entity 403s just because its display name isn't already lower-cased.
+        // entity 403s just because its display name isn't already lower-cased. Fixes a 403 that hit
+        // every caller (ADMIN included) on the comment read check (#127).
         String normalized = normalizeName(name);
         return switch (type) {
             case "catalog" -> registry.allCatalogs().stream()
