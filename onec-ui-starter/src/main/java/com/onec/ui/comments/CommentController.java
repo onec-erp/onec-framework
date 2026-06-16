@@ -7,6 +7,9 @@ import com.onec.ui.DocumentQueryService;
 import com.onec.ui.UiAccessService;
 import com.onec.ui.UiViewResolver;
 
+import com.onec.ui.comments.MentionResolver.ResolvedMention;
+
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,11 +51,14 @@ public class CommentController {
     private final UiViewResolver viewResolver;
     private final CatalogQueryService catalogQuery;
     private final DocumentQueryService documentQuery;
+    private final MentionResolver mentions;
+    private final ApplicationEventPublisher events;
 
     public CommentController(CommentService comments, UiAccessService access,
                              CurrentUserResolver currentUser, CommentAuthorAvatars authorAvatars,
                              CommentProperties properties, UiViewResolver viewResolver,
-                             CatalogQueryService catalogQuery, DocumentQueryService documentQuery) {
+                             CatalogQueryService catalogQuery, DocumentQueryService documentQuery,
+                             MentionResolver mentions, ApplicationEventPublisher events) {
         this.comments = comments;
         this.access = access;
         this.currentUser = currentUser;
@@ -60,6 +67,8 @@ public class CommentController {
         this.viewResolver = viewResolver;
         this.catalogQuery = catalogQuery;
         this.documentQuery = documentQuery;
+        this.mentions = mentions;
+        this.events = events;
     }
 
     /** The request body for posting a comment. */
@@ -74,11 +83,16 @@ public class CommentController {
         List<Comment> thread = comments.list(kind, name, id);
         Map<String, String> avatars = authorAvatars.avatarsFor(
                 thread.stream().map(Comment::authorId).filter(Objects::nonNull).toList());
+        // Resolve every mention across the whole thread in one batch (per the viewer's read access),
+        // then hand each comment just the ones in its body — a thread mentioning ten customers costs
+        // one query, not ten.
+        Map<MentionRef, ResolvedMention> resolved = resolveThreadMentions(thread, principal);
         return thread.stream()
                 // authorId is null for authors not linked to an identity record (e.g. the built-in
                 // admin user). avatars is an immutable map whose get(null) throws NPE, so guard the
                 // key — a null-author comment simply has no avatar.
-                .map(c -> toJson(c, me, admin, c.authorId() == null ? null : avatars.get(c.authorId())))
+                .map(c -> toJson(c, me, admin, c.authorId() == null ? null : avatars.get(c.authorId()),
+                        mentionsFor(c.body(), resolved)))
                 .toList();
     }
 
@@ -97,8 +111,25 @@ public class CommentController {
                     "Comment must be at most " + properties.getMaxLength() + " characters");
         }
         CurrentUser me = currentUser.resolve(principal);
+        // Strip any mention the author can't read before storing — no smuggling a clickable link to
+        // a hidden record (it degrades to the token's plain label text instead).
+        if (mentionsEnabled()) {
+            body = Mentions.degrade(body, ref -> !mentions.canRead(principal, ref));
+        }
         Comment saved = comments.add(kind, name, id, me.recordId(), me.displayName(), body);
-        return toJson(saved, me, isAdmin(principal), authorAvatars.avatarFor(saved.authorId()));
+        Map<MentionRef, ResolvedMention> resolved = resolveThreadMentions(List.of(saved), principal);
+        if (mentionsEnabled()) {
+            // Announce each surviving (author-readable) mention. No consumers ship with the framework;
+            // delivery (in-app, cross-node bus, mail) is purely additive via an @EventListener.
+            for (MentionRef ref : Mentions.parse(saved.body())) {
+                ResolvedMention r = resolved.get(ref);
+                if (r != null && r.readable()) {
+                    events.publishEvent(new EntityMentionedEvent(saved, ref, me));
+                }
+            }
+        }
+        return toJson(saved, me, isAdmin(principal), authorAvatars.avatarFor(saved.authorId()),
+                mentionsFor(saved.body(), resolved));
     }
 
     @DeleteMapping("/{commentId}")
@@ -153,12 +184,49 @@ public class CommentController {
         return comment.authorId() != null && comment.authorId().equals(me.recordId());
     }
 
-    private static Map<String, Object> toJson(Comment c, CurrentUser me, boolean admin, String avatarUrl) {
+    private boolean mentionsEnabled() {
+        return properties.getMentions().isEnabled();
+    }
+
+    /** Resolve every distinct mention across a set of comments, once, for the viewer. */
+    private Map<MentionRef, ResolvedMention> resolveThreadMentions(List<Comment> thread, Principal viewer) {
+        if (!mentionsEnabled()) {
+            return Map.of();
+        }
+        List<MentionRef> all = new ArrayList<>();
+        for (Comment c : thread) {
+            all.addAll(Mentions.parse(c.body()));
+        }
+        Map<MentionRef, ResolvedMention> index = new LinkedHashMap<>();
+        for (ResolvedMention r : mentions.resolve(all, viewer)) {
+            index.put(new MentionRef(r.kind(), r.name(), r.id()), r);
+        }
+        return index;
+    }
+
+    /** The resolved mentions present in one body, in first-seen order, as response JSON. */
+    private List<Map<String, Object>> mentionsFor(String body, Map<MentionRef, ResolvedMention> resolved) {
+        if (resolved.isEmpty()) {
+            return List.of();
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (MentionRef ref : Mentions.parse(body)) {
+            ResolvedMention r = resolved.get(ref);
+            if (r != null) {
+                out.add(r.toJson());
+            }
+        }
+        return out;
+    }
+
+    private static Map<String, Object> toJson(Comment c, CurrentUser me, boolean admin, String avatarUrl,
+                                              List<Map<String, Object>> mentions) {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("id", c.id().toString());
         out.put("authorName", c.authorName());
         out.put("authorAvatarUrl", avatarUrl);
         out.put("body", c.body());
+        out.put("mentions", mentions);
         out.put("createdAt", c.createdAt());
         out.put("editedAt", c.editedAt());
         out.put("mine", c.authorId() != null && c.authorId().equals(me.recordId()));

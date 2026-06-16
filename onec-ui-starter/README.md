@@ -303,14 +303,36 @@ endpoints return **404** — the comment surface doesn't exist there.
 
 | Method | Path | Notes |
 |--------|------|-------|
-| GET | `/api/comments/{kind}/{name}/{id}` | The thread for one record, oldest first. `{kind}` is `catalogs`/`documents`. `404` if the entity hasn't opted into comments. |
+| GET | `/api/comments/{kind}/{name}/{id}` | The thread for one record, oldest first. `{kind}` is `catalogs`/`documents`. `404` if the entity hasn't opted into comments. Each comment carries a `mentions` array — the live resolution of its body's mentions for the caller. |
 | POST | `/api/comments/{kind}/{name}/{id}` | Add a comment — body `{ "body": "…" }`. The author is stamped from the session ([CurrentUserResolver](src/main/java/com/onec/ui/CurrentUserResolver.java)); the client never asserts identity. |
 | DELETE | `/api/comments/{commentId}` | Soft-delete (kept for audit). Author or `ADMIN` only. |
+| GET | `/api/mentions?q=` | `@`-mention typeahead: every catalog/document record the caller can read whose code/description/number matches `q`, ranked and capped. Returns `[{ kind, name, entity, id, display, avatarUrl }]`. |
 
 Reading and posting are gated on **read** access to the owning entity (and on the entity's opt-in
 above) — if you can open the record and the entity supports comments, you can comment on it.
 `onec.comments.enabled=false` is the global kill switch (drops the endpoint, table, and panel
 everywhere); `onec.comments.max-length` caps body length (default 4000).
+
+#### Mentions — `@`-reference any readable entity
+
+A comment body can **`@`-mention** any catalog or document the author can read — a customer, an
+invoice, or (since users are modelled as the identity catalog) a colleague. Mentions reuse the same
+`Ref<T>` philosophy as the rest of the framework: only the identity is stored and display/avatar are
+resolved **live**, so renames and deletes stay correct on their own.
+
+- **Storage.** A mention is a token embedded in `Comment.body`: `@[Display](kind/name/id)`. The body
+  stays a single string — no `onec_comments` schema change — and the `Display` is only a snapshot for
+  fallback. ([`Mentions`](src/main/java/com/onec/ui/comments/Mentions.java) is the parser/serializer.)
+- **Access control.** Mentions inherit the per-entity read gate. On **POST**, a mention the *author*
+  can't read is stripped to plain text (no smuggling a link to a hidden record). On **read**, a
+  mention the *viewer* can't read degrades to plain text instead of a clickable 403; one they can read
+  resolves to its current display + avatar. ([`MentionResolver`](src/main/java/com/onec/ui/comments/MentionResolver.java) batches this per thread.)
+- **Notifications (additive).** Each readable mention in a freshly posted comment publishes an
+  [`EntityMentionedEvent`](src/main/java/com/onec/ui/comments/EntityMentionedEvent.java) — **no
+  consumers** ship with the framework. Wire delivery (in-app, the cross-node event bus, `onec-mail-starter`)
+  later by registering a Spring `@EventListener`, exactly as you would for `DocumentPostedEvent`.
+- **Config.** `onec.comments.mentions.enabled` (default true) gates the whole feature;
+  `onec.comments.mentions.suggestion-limit` / `…per-entity-limit` cap the typeahead.
 
 ### Misc — `/api`
 

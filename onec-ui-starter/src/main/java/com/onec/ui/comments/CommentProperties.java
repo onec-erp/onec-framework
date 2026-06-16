@@ -23,6 +23,9 @@ public class CommentProperties {
      */
     private int maxLength = 4000;
 
+    /** {@code @}-mention settings (the {@code onec.comments.mentions.*} sub-namespace). */
+    private final Mentions mentions = new Mentions();
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -37,5 +40,60 @@ public class CommentProperties {
 
     public void setMaxLength(int maxLength) {
         this.maxLength = maxLength;
+    }
+
+    public Mentions getMentions() {
+        return mentions;
+    }
+
+    /**
+     * Settings for {@code @}-mentions in comment bodies — letting a comment reference any catalog or
+     * document (users included) the author can read. Stored as a token in the body and resolved live,
+     * so mentions inherit the same per-entity read gate as everything else.
+     */
+    public static class Mentions {
+
+        /**
+         * Whether {@code @}-mentions are parsed, resolved and offered in the compose typeahead. Turn
+         * it off to keep plain-text comments without touching {@code onec.comments.enabled}; existing
+         * mention tokens then degrade to their plain label text.
+         */
+        private boolean enabled = true;
+
+        /**
+         * Largest number of suggestions a single {@code /api/mentions} typeahead response returns
+         * across all readable entities. Defaults to 8.
+         */
+        private int suggestionLimit = 8;
+
+        /**
+         * Largest number of matches pulled from any one entity before the suggestions are merged and
+         * ranked, bounding the per-keystroke scan. Defaults to 5.
+         */
+        private int perEntityLimit = 5;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public int getSuggestionLimit() {
+            return suggestionLimit;
+        }
+
+        public void setSuggestionLimit(int suggestionLimit) {
+            this.suggestionLimit = suggestionLimit;
+        }
+
+        public int getPerEntityLimit() {
+            return perEntityLimit;
+        }
+
+        public void setPerEntityLimit(int perEntityLimit) {
+            this.perEntityLimit = perEntityLimit;
+        }
     }
 }

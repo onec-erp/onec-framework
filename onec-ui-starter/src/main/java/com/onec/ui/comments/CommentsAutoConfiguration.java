@@ -16,6 +16,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 
 /**
@@ -44,13 +45,27 @@ public class CommentsAutoConfiguration {
     }
 
     @Bean
+    public MentionResolver mentionResolver(MetadataRegistry registry, UiAccessService access, Jdbi jdbi) {
+        return new MentionResolver(registry, access, jdbi);
+    }
+
+    @Bean
+    public MentionController mentionController(MetadataRegistry registry, CatalogQueryService catalogQuery,
+                                              DocumentQueryService documentQuery, UiAccessService access,
+                                              CommentProperties properties) {
+        return new MentionController(registry, catalogQuery, documentQuery, access, properties);
+    }
+
+    @Bean
     public CommentController commentController(CommentService commentService, UiAccessService access,
                                                CurrentUserResolver currentUserResolver,
                                                CommentAuthorAvatars authorAvatars,
                                                CommentProperties properties, UiViewResolver viewResolver,
                                                CatalogQueryService catalogQuery,
-                                               DocumentQueryService documentQuery) {
+                                               DocumentQueryService documentQuery,
+                                               MentionResolver mentionResolver,
+                                               ApplicationEventPublisher events) {
         return new CommentController(commentService, access, currentUserResolver, authorAvatars,
-                properties, viewResolver, catalogQuery, documentQuery);
+                properties, viewResolver, catalogQuery, documentQuery, mentionResolver, events);
     }
 }
