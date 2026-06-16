@@ -60,12 +60,14 @@ public final class ActionSpec {
     /**
      * A resolved action button. Exactly one of {@code navigateUrl} / {@code handler} is set.
      *
-     * <p>{@code icon}/{@code label} are the fixed values (and the fallback). {@code iconFn},
+     * <p>{@code icon}/{@code label} are the fixed values (and the fallback). {@code logo} is an
+     * optional image URL/path shown in place of the lucide {@code icon} — a brand mark ("Connect
+     * with X"), rendered on page-action and list/row/toolbar buttons. {@code iconFn},
      * {@code labelFn}, {@code visibleFn} and {@code enabledFn} are the optional per-row overrides
      * for a {@link ActionScope#ROW} action — any that are non-null are evaluated against each
      * {@link ActionRow} when the list renders.</p>
      */
-    public record Action(String key, String label, String icon, ActionScope scope,
+    public record Action(String key, String label, String icon, String logo, ActionScope scope,
                          String navigateUrl, Function<ActionContext, ActionResult> handler,
                          Function<ActionRow, String> iconFn, Function<ActionRow, String> labelFn,
                          Predicate<ActionRow> visibleFn, Predicate<ActionRow> enabledFn) {
@@ -84,6 +86,7 @@ public final class ActionSpec {
         private final String key;
         private String label;
         private String icon = "";
+        private String logo = "";
         private ActionScope scope = ActionScope.ROW;
         private String navigateUrl;
         private Function<ActionContext, ActionResult> handler;
@@ -104,6 +107,15 @@ public final class ActionSpec {
         /** A kebab-case lucide icon name (e.g. {@code "archive"}, {@code "download"}). */
         public ActionBuilder icon(String icon) {
             this.icon = icon;
+            return this;
+        }
+
+        /**
+         * An image URL or app-static path shown instead of the lucide {@link #icon(String)} — e.g. a
+         * brand logo for a "Connect with X" button ({@code .logo("https://cdn/github.svg")}).
+         */
+        public ActionBuilder logo(String logo) {
+            this.logo = logo;
             return this;
         }
 
@@ -152,7 +164,7 @@ public final class ActionSpec {
         }
 
         Action build() {
-            return new Action(key, label != null ? label : key, icon, scope, navigateUrl, handler,
+            return new Action(key, label != null ? label : key, icon, logo, scope, navigateUrl, handler,
                     iconFn, labelFn, visibleFn, enabledFn);
         }
     }

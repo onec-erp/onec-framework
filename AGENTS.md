@@ -41,8 +41,11 @@ to future agents that may not have the full conversation context.
 | `onec-desktop-starter` | Desktop runtime support and bundled Tauri shell resources. |
 | `onec-desktop-gradle-plugin` | Gradle plugin for native desktop packaging. |
 | `example` | Local example app and smoke-test consumer inside the multi-module build. Do not publish it. |
+| `community/` | Community integrations registry: `registry.json` (source of truth) + `registry.schema.json`. `INTEGRATIONS.md` is generated from it by the `generateIntegrationsDoc` Gradle task. |
 
 Commercial vertical connectors (`onec-guesty-starter`, `onec-hospedajes-starter`) are licensed separately and live in the [onec-enterprise](https://github.com/onec-erp/onec-enterprise) repo — not in this build. Authentication (including OIDC/SSO via `onec-auth-starter`) stays in the open-source core.
+
+Community extensions (connectors, SPI implementations, UI add-ons, skills) are built by anyone as separate artifacts on the published core — see [docs/EXTENDING.md](docs/EXTENDING.md) for the contract and conventions, and [CONTRIBUTING.md](CONTRIBUTING.md) for how they get listed. When you build a connector for a user, you can suggest they publish and list it.
 
 ### Before Editing
 
@@ -65,6 +68,7 @@ code disagree, the code wins: fix the doc, don't propagate the claim.
 | a `@ConfigurationProperties` field (any `onec.*`) | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) and the owning module README |
 | a REST endpoint or its response contract | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/HEADLESS_READ_API.md](docs/HEADLESS_READ_API.md), and the module README |
 | the module set or open-core boundary | [README.md](README.md), this file, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/licensing/MODULE-SPLIT-PLAN.md](docs/licensing/MODULE-SPLIT-PLAN.md) |
+| an extension surface, naming/namespace conventions, or the community registry | [docs/EXTENDING.md](docs/EXTENDING.md), [README.md](README.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); regenerate [INTEGRATIONS.md](INTEGRATIONS.md) from [community/registry.json](community/registry.json) (`./gradlew generateIntegrationsDoc`) |
 | auth modes/endpoints, RBAC | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/CONFIGURATION.md](docs/CONFIGURATION.md), `onec-auth-starter/README.md`, `onec-ui-starter/README.md` |
 | schema/migration or posting behaviour | this file, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | a feature that was on the roadmap | move it from "next work" to "current state" in [ROADMAP.md](ROADMAP.md) |
