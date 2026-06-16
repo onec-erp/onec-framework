@@ -80,6 +80,11 @@ public class UiAccessService {
     }
 
     public boolean canRead(Principal principal, String type, String name) {
+        // {name} arrives as the route segment (e.g. "properties"), not the descriptor's display
+        // name ("Properties"). Resolve it the same case-/separator-insensitive way the generic
+        // controllers and query services do (see CatalogQueryService), or a perfectly-readable
+        // entity 403s just because its display name isn't already lower-cased. Fixes a 403 that hit
+        // every caller (ADMIN included) on the comment read check (#127).
         String normalized = normalizeName(name);
         return switch (type) {
             case "catalog" -> registry.allCatalogs().stream()
@@ -101,16 +106,9 @@ public class UiAccessService {
         };
     }
 
-    /**
-     * Normalize an entity name for matching: strip spaces/underscores and lowercase, so a route slug
-     * ({@code bank_accounts}), a display name ({@code "Bank Accounts"}), and a logical name all
-     * resolve to the same descriptor. Mirrors {@link CatalogQueryService#require} /
-     * {@code DocumentQueryService} so the name-based access check resolves the same descriptor the
-     * detail routes do. Without it a route slug never equals {@code logicalName()} exactly, so the
-     * comment endpoint's read check 403s every caller — ADMIN included (see #127).
-     */
+    /** Strip spaces/underscores and lower-case, matching the generic controllers' {name} lookup. */
     private static String normalizeName(String name) {
-        return name == null ? "" : name.replace("_", "").replace(" ", "").toLowerCase(Locale.ROOT);
+        return name == null ? "" : name.replace(" ", "").replace("_", "").toLowerCase();
     }
 
     /**

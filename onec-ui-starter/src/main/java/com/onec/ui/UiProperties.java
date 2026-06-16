@@ -11,7 +11,12 @@ public class UiProperties {
     /** Master switch for the UI starter. Also gated on a {@code MetadataRegistry} bean being present. */
     private boolean enabled = true;
 
-    /** SPA base path, returned as {@code basePath} from {@code GET /api/config}. */
+    /**
+     * URL prefix the SPA is mounted under. Baked into the served {@code index.html} (and returned as
+     * {@code basePath} from {@code GET /api/config}) so the web client adopts it as its router
+     * basename and deep-link prefix; the bare root redirects here. Default {@code /ui}; set to
+     * {@code /} to mount the app at the web root.
+     */
     private String path = "/ui";
 
     /** When true, every mutating REST call is rejected with {@code 403 UI is in read-only mode}. */

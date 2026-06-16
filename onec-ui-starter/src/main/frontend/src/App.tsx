@@ -17,6 +17,7 @@ import { ConstantsPortals } from "@/lib/constants-bridge";
 import { ActionsBarPortals } from "@/lib/actions-bar-bridge";
 import { CommentsPortals } from "@/lib/comments-bridge";
 import { UpdateNotice } from "@/components/update-notice";
+import { BASE_PATH } from "@/lib/base-path";
 
 function ProtectedApp() {
   const { user, loading } = useAuth();
@@ -76,7 +77,7 @@ function WorkspaceProviders({ children }: { children: ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter basename="/">
+    <BrowserRouter basename={BASE_PATH}>
       <Routes>
         <Route path="/portfolio" element={<PortfolioPage />} />
         <Route path="/login" element={<WorkspaceProviders><LoginView /></WorkspaceProviders>} />
