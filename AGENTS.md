@@ -683,6 +683,8 @@ Field-hint methods on `FieldHintBuilder` (used inside `EntityView.fields`): `ord
 
 `hint(String)` attaches optional help text to a field — surfaced in the UI as a hoverable/focusable `?` icon next to the field's label (on the edit form, the list column header, and the read-only detail view). Custom dashboard components carry the same affordance: `b.widget("Revenue").type("metric").hint("…")` shows a `?` next to the widget title. Keep hints to a sentence.
 
+`EntityView.actions(ActionSpec)` declares custom buttons — `a.action(key).scope(ActionScope.TOOLBAR|ROW|DETAIL)` running a server `handler(ctx -> ActionResult)` or `navigate(url)`. A **row** action can be *state-aware*: pass `icon(row -> …)`, `label(row -> …)`, `visibleWhen(row -> …)` or `enabledWhen(row -> …)` (each taking an `ActionRow` — `id()`, `text(col)`, `enumValue(col, Type)`) so one control adapts per row (a `pause` "Suspend" flipping to a `play` "Resume", a button shown only where it applies). Evaluated server-side as the list renders; static actions cost nothing. See `onec-ui-starter/README.md`.
+
 ## Questions To Ask For Common Domains
 
 ### Retail Or Wholesale
