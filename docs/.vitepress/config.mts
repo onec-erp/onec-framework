@@ -20,11 +20,12 @@ export default defineConfig({
   // Sidecar prose merged into the generated CONFIGURATION.md — fragments, not pages.
   srcExclude: ['_config/**'],
 
-  // The guides intentionally cross-reference repo-root files (../AGENTS.md, ../onno-*/README.md) and
-  // source files on GitHub, which aren't part of the site. Don't fail the build over those (the
-  // pattern is unanchored because VitePress normalises these links to a `./../…` form). Genuine
-  // in-site dead links are still caught.
-  ignoreDeadLinks: [/\.\.\//, /\.java$/],
+  // The guides intentionally cross-reference repo-root files (../AGENTS.md, ../onno-*/README.md),
+  // source files on GitHub, and downloadable scripts shipped alongside the prose (e.g. the
+  // migrations/onec-to-onno.sql rename script) — none of which are pages on the site. Don't fail the
+  // build over those (the `../` pattern is unanchored because VitePress normalises these links to a
+  // `./../…` form). Genuine in-site dead links are still caught.
+  ignoreDeadLinks: [/\.\.\//, /\.java$/, /\.sql$/],
 
   themeConfig: {
     nav: [
