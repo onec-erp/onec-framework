@@ -87,7 +87,7 @@ These show how the *consuming app* wires a connector to its domain (illustrative
 
 ## When editing onno-enterprise, keep its docs in sync too
 
-Update the connector's module README and the repo's top-level README module table when you add or
-change a connector. (Known gap to fix when touching it: the top-level README table omits
-`onno-tochka-starter`, and that module still references the old `su.onno:*` core coordinates instead
-of `su.onno:*`.)
+Update the connector's module README and the repo's top-level README module table whenever you add
+or change a connector — a connector that is missing from the module table is effectively
+undiscoverable. Confirm the module depends on the core as `su.onno:onno-framework` /
+`su.onno:onno-framework-starter`, not any stale coordinates.

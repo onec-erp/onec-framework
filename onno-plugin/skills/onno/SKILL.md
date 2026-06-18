@@ -215,8 +215,9 @@ the JSON read contract (`{col}_display`/`{col}_ref`, `__SECRET_SET__` redaction,
 ## Modules & config
 
 Core (`onno-framework` + `-starter`), plus opt-in starters: `onno-ui-starter`, `onno-auth-starter`,
-`onno-mcp-starter`, `onno-import-starter`, `onno-kafka-starter`, `onno-mail-starter`,
-`onno-print-starter`, `onno-desktop-starter` (+ Gradle plugin). Each integration starter is gated by
+`onno-mcp-starter`, `onno-import-starter`, `onno-cluster-starter` (cross-node live-UI sync for
+horizontal scale-out), `onno-kafka-starter`, `onno-mail-starter`, `onno-print-starter`,
+`onno-desktop-starter` (+ Gradle plugin). Each integration starter is gated by
 `onno.<module>.enabled` (default on). The full module map is in
 [docs/ARCHITECTURE.md](https://github.com/onno-erp/onno-framework/blob/main/docs/ARCHITECTURE.md); every `onno.*` property is in
 [docs/CONFIGURATION.md](https://github.com/onno-erp/onno-framework/blob/main/docs/CONFIGURATION.md).
