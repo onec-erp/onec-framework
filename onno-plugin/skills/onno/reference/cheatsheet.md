@@ -154,7 +154,10 @@ AST, a fluent `QueryBuilder`, and a shared `SqlRenderer`. `Ref`-navigation auto-
   `comments()` (return `true` to opt this catalog/document into the `/api/comments` discussion
   thread; off by default, gated by the global `onno.comments.enabled` switch).
   - `ListSpec`: `title`, `searchable/noSearch`, `sortBy(field, desc)`, `columns(...)`,
-    `column(field,label)`, `label(field,label)`, `hide(...)`, `filter(field)` → options/contains/dateRange.
+    `column(field,label)`, `label(field,label)`, `hide(...)`, `filter(field)` →
+    `options/multiOptions(String...)` (value shown verbatim) or `options/multiOptions(Map<value,label>)`
+    (value→label split: query matches the value, dropdown shows the label — pass a `LinkedHashMap` for
+    order) / `contains` / `startsWith` / `dateRange`.
   - `ActionSpec`: `action(key)` → `ActionBuilder.label/icon(String)`, `scope(ActionScope.ROW|TOOLBAR|DETAIL)`,
     `handler(ctx→ActionResult)` or `navigate(url)`. A **row** action may vary per row — `icon(row→String)`,
     `label(row→String)`, `visibleWhen(row→bool)`, `enabledWhen(row→bool)` — taking an `ActionRow`

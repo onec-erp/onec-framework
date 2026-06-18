@@ -75,7 +75,16 @@ public final class SurfaceDivBuilder {
             filter.put("label", f.label());
             filter.put("column", f.columnName());
             filter.put("type", f.type());
-            filter.put("options", f.options());
+            // Each option travels as {value,label}: the client renders label, sends value to the
+            // query (so a code/enum-mirror column can show a localized choice). See ListSpec.Option.
+            List<Map<String, Object>> options = new ArrayList<>();
+            for (ResolvedListView.Option o : f.options()) {
+                Map<String, Object> opt = new LinkedHashMap<>();
+                opt.put("value", o.value());
+                opt.put("label", o.label());
+                options.add(opt);
+            }
+            filter.put("options", options);
             filters.add(filter);
         }
 
