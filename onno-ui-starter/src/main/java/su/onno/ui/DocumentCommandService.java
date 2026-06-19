@@ -125,7 +125,9 @@ public class DocumentCommandService {
             var update = h.createUpdate(sql)
                     .bind("_id", id)
                     .bind("_number", resolveNumber(desc, body))
-                    .bind("_date", body.getOrDefault("date", LocalDateTime.now().toString()))
+                    // Bind a real LocalDateTime, not its ISO string: PostgreSQL rejects a varchar
+                    // bound into the timestamp _date column (H2 silently coerces it). (#163)
+                    .bind("_date", toLocalDateTime(body.getOrDefault("date", LocalDateTime.now())))
                     .bind("_posted", false)
                     .bind("_deletion_mark", false)
                     .bind("_version", 0);
@@ -195,7 +197,8 @@ public class DocumentCommandService {
             int updated = jdbi.withHandle(h -> {
                 var update = h.createUpdate(sql).bind("_id", id);
                 if (body.containsKey("number")) update.bind("_number", body.get("number"));
-                if (body.containsKey("date")) update.bind("_date", body.get("date"));
+                // Same as create: bind the timestamp as a LocalDateTime so Postgres accepts it. (#163)
+                if (body.containsKey("date")) update.bind("_date", toLocalDateTime(body.get("date")));
                 if (hasExpectedVersion) {
                     update.bind("_expected_version", parseInt(body.getOrDefault("version", body.get("_version"))));
                 }
@@ -614,28 +617,30 @@ public class DocumentCommandService {
      * Properly converts and binds an attribute value, handling Ref UUIDs and enums.
      */
     private void bindAttribute(Update update, AttributeDescriptor attr, Object value) {
+        // Coerce to the column's Java type, then bind null-safely so a null ref/enum/numeric/date
+        // binds as a typed (unspecified) null PostgreSQL can infer rather than varchar. (#163)
+        SqlBind.nullable(update, attr.columnName(), coerceAttribute(attr, value));
+    }
+
+    /** The value to store for an attribute: its column's Java type, or {@code null}/empty → null. */
+    private Object coerceAttribute(AttributeDescriptor attr, Object value) {
         if (value == null || "".equals(value)) {
-            update.bind(attr.columnName(), (UUID) null);
-            return;
+            return null;
         }
         if (attr.secret()) {
             // Write-only secret: store encrypted. A "set" sentinel echoed from a GET carries no
             // real value (on create there's nothing to keep, so store null; on update such
             // columns are dropped earlier by leaveSecretUnchanged).
-            if (SecretRedactor.SET.equals(value)) {
-                update.bind(attr.columnName(), (String) null);
-            } else {
-                update.bind(attr.columnName(), secretCipher.encrypt(value.toString()));
-            }
-        } else if (attr.isRef() || attr.javaType().isEnum()) {
-            // Ref and enum columns are UUID in the DB
-            UUID uuid = value instanceof UUID u ? u : UUID.fromString(value.toString());
-            update.bind(attr.columnName(), uuid);
-        } else if (attr.javaType() == BigDecimal.class) {
-            update.bind(attr.columnName(), value instanceof BigDecimal bd ? bd : new BigDecimal(value.toString()));
-        } else {
-            update.bind(attr.columnName(), value);
+            return SecretRedactor.SET.equals(value) ? null : secretCipher.encrypt(value.toString());
         }
+        if (attr.isRef() || attr.javaType().isEnum()) {
+            // Ref and enum columns are UUID in the DB
+            return value instanceof UUID u ? u : UUID.fromString(value.toString());
+        }
+        if (attr.javaType() == BigDecimal.class) {
+            return value instanceof BigDecimal bd ? bd : new BigDecimal(value.toString());
+        }
+        return value;
     }
 
     /**
