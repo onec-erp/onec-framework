@@ -111,8 +111,9 @@ public class CatalogCommandService {
                     .bind("_description", body.getOrDefault("description", ""))
                     .bind("_deletion_mark", false)
                     .bind("_is_folder", Boolean.TRUE.equals(body.get("folder")))
-                    .bind("_parent", parseUuid(body.get("parent")))
                     .bind("_version", 0);
+            // A null _parent (any top-level record) must bind as a typed uuid null, not varchar. (#163)
+            SqlBind.nullable(update, "_parent", parseUuid(body.get("parent")));
 
             for (AttributeDescriptor attr : desc.attributes()) {
                 bindAttribute(update, attr, body.get(attr.fieldName()));
@@ -188,7 +189,7 @@ public class CatalogCommandService {
             if (body.containsKey("code")) update.bind("_code", body.get("code"));
             if (body.containsKey("description")) update.bind("_description", body.get("description"));
             if (body.containsKey("folder")) update.bind("_is_folder", Boolean.TRUE.equals(body.get("folder")));
-            if (body.containsKey("parent")) update.bind("_parent", parseUuid(body.get("parent")));
+            if (body.containsKey("parent")) SqlBind.nullable(update, "_parent", parseUuid(body.get("parent")));
             if (hasExpectedVersion) {
                 update.bind("_expected_version", parseInt(body.getOrDefault("version", body.get("_version"))));
             }
@@ -237,27 +238,29 @@ public class CatalogCommandService {
     }
 
     private void bindAttribute(Update update, AttributeDescriptor attr, Object value) {
+        // Coerce to the column's Java type, then bind null-safely so a null ref/enum/numeric/date
+        // binds as a typed (unspecified) null PostgreSQL can infer rather than varchar. (#163)
+        SqlBind.nullable(update, attr.columnName(), coerceAttribute(attr, value));
+    }
+
+    /** The value to store for an attribute: its column's Java type, or {@code null}/empty → null. */
+    private Object coerceAttribute(AttributeDescriptor attr, Object value) {
         if (value == null || "".equals(value)) {
-            update.bind(attr.columnName(), (UUID) null);
-            return;
+            return null;
         }
         if (attr.secret()) {
             // Write-only secret: store the value encrypted. A "set" sentinel (echoed from a
             // GET) carries no real value — on create there's nothing to keep, so store null.
             // On update the caller is filtered out earlier by leaveSecretUnchanged.
-            if (SecretRedactor.SET.equals(value)) {
-                update.bind(attr.columnName(), (String) null);
-            } else {
-                update.bind(attr.columnName(), secretCipher.encrypt(value.toString()));
-            }
-        } else if (attr.isRef() || attr.javaType().isEnum()) {
-            UUID uuid = value instanceof UUID u ? u : UUID.fromString(value.toString());
-            update.bind(attr.columnName(), uuid);
-        } else if (attr.javaType() == BigDecimal.class) {
-            update.bind(attr.columnName(), value instanceof BigDecimal bd ? bd : new BigDecimal(value.toString()));
-        } else {
-            update.bind(attr.columnName(), value);
+            return SecretRedactor.SET.equals(value) ? null : secretCipher.encrypt(value.toString());
         }
+        if (attr.isRef() || attr.javaType().isEnum()) {
+            return value instanceof UUID u ? u : UUID.fromString(value.toString());
+        }
+        if (attr.javaType() == BigDecimal.class) {
+            return value instanceof BigDecimal bd ? bd : new BigDecimal(value.toString());
+        }
+        return value;
     }
 
     /**
