@@ -478,8 +478,8 @@ resolved **live**, so renames and deletes stay correct on their own.
 
 Every catalog or document detail surface carries **record-level presence markers**: the avatars of
 anyone else currently viewing the same record, like the collaborator dots in a shared document. The
-server prepends an `onno-presence` DivKit panel to the detail content (above the header); the React
-bridge marks the viewer present and renders the markers. It is invisible when you're alone, so a solo
+server inserts an `onno-presence` DivKit panel just under the detail header; the React bridge marks the
+viewer present and renders the markers, right-aligned (the Google-Docs spot). It is invisible when you're alone, so a solo
 viewer sees nothing — markers only appear once a second viewer arrives. Presence is framework
 infrastructure with **no per-entity modelling and no opt-in**; it's on for every detail surface.
 

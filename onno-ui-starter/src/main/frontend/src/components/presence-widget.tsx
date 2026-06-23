@@ -97,7 +97,7 @@ export function PresenceBar({ target }: { target: PresenceTarget }) {
 
   return (
     <div
-      className="flex items-center gap-2 text-xs text-muted-foreground"
+      className="flex w-full items-center justify-end gap-2 text-xs text-muted-foreground"
       role="status"
       aria-label={`${viewers.length} other ${viewers.length === 1 ? "person" : "people"} viewing this record`}
     >
