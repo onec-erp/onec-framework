@@ -148,7 +148,7 @@ function titleForPath(
   t: Translate
 ): string {
   const path = pathname || "/";
-  if (path === "/") return titles?.["/"] ?? "Dashboard";
+  if (path === "/") return titles?.["/"] ?? t("nav.dashboard");
 
   const [kind, name, detail, action] = path.split("/").filter(Boolean);
   const basePath = name ? `/${kind}/${name}` : `/${kind ?? ""}`;

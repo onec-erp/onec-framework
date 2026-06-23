@@ -71,6 +71,14 @@ tab already follows the entity's language with no `onno.ui.messages` key. Only t
 are chrome — `tab.new` / `tab.edit` / `tab.duplicate` (`New {entity}` etc.) wrap that localized
 name. A tab for an entity not placed in the nav falls back to the humanized route segment.
 
+The home/dashboard entry is the one nav/tab label that can also be chrome: it uses the authored `/`
+`Page`'s `title` when set (localize it with `b.title(...)`), otherwise the `nav.dashboard` key — so a
+widget-grid dashboard with no authored page still localizes its sidebar item and tab via
+`onno.ui.messages`. The built-in **Settings** surface (opt-in via `onno.ui.settings.enabled`) is the
+same shape: its sidebar item and tab read `nav.settings`, and the default constant-editor page's
+heading reads `settings.title` / `settings.subtitle` — all overridable via `onno.ui.messages`, unless
+an authored `/settings` `Page` sets its own `title`/`subtitle`.
+
 The resolved map (defaults + overrides) is the single label source for both layers: the server-side
 DivKit builders read it directly, and it rides along on `GET /api/config` as a `messages` object the
 web client overlays on its bundled defaults. Scope is **one language per deployment** — there is no
