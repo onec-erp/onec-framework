@@ -88,6 +88,33 @@ public class UiEventPublisher {
     }
 
     /**
+     * Fans the current viewer set of one record out to every open stream as a {@code presence} event, for
+     * record-level collaboration markers. Each viewer is a {@code {userId, displayName}} map. Sent only
+     * when a record's viewer set changes (a join or a leave), never on a bare heartbeat.
+     *
+     * <p>Its {@code entityType} is the distinct sentinel {@code "presence"}, <strong>not</strong> the
+     * record's {@code catalog}/{@code document} kind — exactly as comment events use {@code "comment"} —
+     * so the list/detail/dashboard surfaces, which refetch on a row change to their entity, never mistake
+     * a presence ping for one. The record's route {@code kind} ({@code catalogs}/{@code documents}) and
+     * {@code entityName} ride alongside so the ambient-presence store can map a viewed record to its nav
+     * item and list rows; the marker surfaces match on {@code id} (globally unique).
+     */
+    public void publishPresence(String kind, String entityName, String id, List<Map<String, String>> viewers) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("type", "presence");
+        payload.put("entityType", "presence");
+        payload.put("kind", kind);
+        payload.put("entityName", entityName);
+        payload.put("id", id);
+        payload.put("viewers", viewers);
+        payload.put("timestamp", Instant.now().toString());
+
+        for (SseEmitter emitter : emitters) {
+            send(emitter, "presence", payload);
+        }
+    }
+
+    /**
      * Write a comment line ({@code : keepalive}) to every open stream. SSE comments carry
      * no event and the client parser ignores them, so this never surfaces as a UI event —
      * it just keeps the socket warm. A write that throws means the peer is gone, so we drop

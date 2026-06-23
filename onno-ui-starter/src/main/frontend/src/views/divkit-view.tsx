@@ -20,7 +20,13 @@ import { stripBasePath, withBasePath } from "@/lib/base-path";
 import { ContentPane, type LiveRegistry } from "@/views/content-pane";
 import type { ContentAction } from "@/views/divkit-content";
 import { ICON_CUSTOM_COMPONENTS } from "@/lib/icon-bridge";
+import { NAV_PRESENCE_CUSTOM_COMPONENTS } from "@/lib/nav-presence-bridge";
+import { startPresence } from "@/lib/presence-store";
+import { PanePresence, TabPresence } from "@/components/presence-surfaces";
 import "@divkitframework/divkit/dist/client.css";
+
+// The shell nav/account cards render lucide icons and the ambient sidebar presence dots as React islands.
+const NAV_CARD_CUSTOM_COMPONENTS = new Map([...ICON_CUSTOM_COMPONENTS, ...NAV_PRESENCE_CUSTOM_COMPONENTS]);
 
 /**
  * The authenticated app, rendered as DivKit cards: the chrome (/shell — top bar +
@@ -255,6 +261,10 @@ function affectsSurface(event: UiEvent, pathname: string): boolean {
   // a list/detail/dashboard surface, so keep them off the content-pane refetch path — otherwise
   // every comment post would needlessly refetch the home dashboard (which refreshes on any change).
   if (event.entityType === "comment") return false;
+  // Likewise presence (collaboration-marker) pings: handled only by the presence bar's own listener.
+  // Without this, every heartbeat/join would refetch the open detail pane (and the home dashboard),
+  // remounting the bar, which re-enters and emits another ping — an endless refetch/flicker loop.
+  if (event.entityType === "presence") return false;
   // Home shows counts/charts over many entities — refresh on any data change.
   if (pathname === "/" || pathname === "") return true;
 
@@ -444,6 +454,11 @@ export function DivKitView() {
     }
   }, []);
   useUiEvents(onUiEvent);
+
+  // Seed the ambient-presence store once and keep it live off the same SSE fan-out the islands consume.
+  useEffect(() => {
+    startPresence();
+  }, []);
 
   useEffect(() => {
     const timers = refetchTimers.current;
@@ -1148,7 +1163,7 @@ export function DivKitView() {
       theme={resolvedTheme}
       globalVariablesController={navVars}
       onCustomAction={onCustomAction as NonNullable<DivKitProps["onCustomAction"]>}
-      customComponents={ICON_CUSTOM_COMPONENTS}
+      customComponents={NAV_CARD_CUSTOM_COMPONENTS}
     />
   );
 
@@ -1432,7 +1447,15 @@ export function DivKitView() {
               </div>
             );
           })}
+          {/* Collaborator avatars for the focused pane's record — pinned right of the tabs. */}
+          {focused && (
+            <div className="ml-auto flex shrink-0 items-center pl-2 pr-1">
+              <TabPresence path={pane.activePath} />
+            </div>
+          )}
         </div>
+        {/* Invisible: marks this pane's active record present (enter/heartbeat/leave) by its route. */}
+        <PanePresence path={pane.activePath} />
 
         {/* Every open tab stays mounted in its own scroll container; only the active
             one is shown. Keeping them alive preserves each tab's scroll position,

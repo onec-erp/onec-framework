@@ -210,6 +210,36 @@ export interface CommentView {
   canDelete: boolean;
 }
 
+/** One user currently viewing a record (see PresenceController). */
+export interface PresenceViewer {
+  userId: string;
+  displayName: string;
+}
+
+/** The response to a presence ping: the record's current viewers plus the caller's own id. */
+export interface PresenceState {
+  /** The caller's own user id, so the client can omit itself from the markers. */
+  you: string;
+  viewers: PresenceViewer[];
+}
+
+/** One record currently being viewed, in the ambient-presence snapshot. */
+export interface PresenceRecord {
+  /** Route kind — "catalogs" | "documents". */
+  kind: string;
+  /** Route name (e.g. "properties"). */
+  name: string;
+  /** Record id (uuid). */
+  id: string;
+  viewers: PresenceViewer[];
+}
+
+/** The whole-app presence picture: every viewed record the caller may read, plus the caller's own id. */
+export interface PresenceSnapshot {
+  you: string;
+  records: PresenceRecord[];
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -331,6 +361,36 @@ export const api = {
   // matching q, ranked and capped server-side (see MentionController).
   searchMentions: (q: string) =>
     fetchJson<MentionSuggestion[]>(`${BASE}/mentions?q=${encodeURIComponent(q)}`),
+
+  // The ambient-presence snapshot: every viewed record the caller may read. Loaded once on startup;
+  // live `presence` SSE deltas keep the client store current after that.
+  getPresenceSnapshot: () => fetchJson<PresenceSnapshot>(`${BASE}/presence`),
+  // Presence — record-level collaboration markers (see PresenceController). `enter` on open and a
+  // periodic `heartbeat` keep the viewer alive (the server expires them by TTL once heartbeats stop);
+  // both return the record's current viewers. Gated server-side on read access to the owning entity.
+  presence: (kind: "catalogs" | "documents", name: string, id: string,
+             action: "enter" | "heartbeat") =>
+    fetchJson<PresenceState>(`${BASE}/presence/${kind}/${name}/${id}`, {
+      method: "POST",
+      body: JSON.stringify({ action }),
+    }),
+  // Best-effort leave on page/island teardown: `keepalive` lets the request outlive the unloading
+  // document (and still carry the CSRF header, unlike sendBeacon). A dropped leave is harmless — the
+  // server's presence TTL reaps the viewer anyway; this just makes them vanish for others promptly.
+  leavePresence: (kind: "catalogs" | "documents", name: string, id: string) => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const csrf = readCsrfToken();
+    if (csrf) headers[CSRF_HEADER] = csrf;
+    return fetch(`${BASE}/presence/${kind}/${name}/${id}`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers,
+      body: JSON.stringify({ action: "leave" }),
+      keepalive: true,
+    }).catch(() => {
+      /* best-effort; TTL backstops */
+    });
+  },
 
   postDocument: (name: string, id: string) =>
     fetchJson<EntityRecord>(`${BASE}/documents/${name}/${id}/post`, { method: "POST" }),
