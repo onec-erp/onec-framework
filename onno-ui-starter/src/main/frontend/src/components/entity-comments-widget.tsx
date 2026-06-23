@@ -32,7 +32,8 @@ function initials(name: string | null): string {
 }
 
 // A compact "time ago" for recent comments, falling back to an absolute date for older ones.
-// createdAt is a server LocalDateTime (no zone), parsed in the viewer's local time.
+// createdAt is a zone-qualified instant ("…Z"), so new Date() reads it as the same point in time
+// for every viewer and localizes it to their zone.
 function timeAgo(iso: string | null): string {
   if (!iso) return "";
   const then = new Date(iso).getTime();

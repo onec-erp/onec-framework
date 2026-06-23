@@ -5,6 +5,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -59,6 +60,23 @@ class CommentServiceTest {
         assertThat(service.find(c.id())).isPresent();
         // A second delete is a no-op.
         assertThat(service.softDelete(c.id())).isFalse();
+    }
+
+    @Test
+    void stampsCreatedAtAsAnInstantThatRoundTrips() {
+        Instant before = Instant.now().minusSeconds(5);
+        Comment added = service.add("catalogs", "Properties", property, alice, "Alice", "Hello");
+        Instant after = Instant.now().plusSeconds(5);
+
+        // The write path captures a real instant (was a zoneless LocalDateTime.now(), #177), so it
+        // doesn't depend on the server JVM's zone.
+        assertThat(added.createdAt()).isBetween(before, after);
+        assertThat(added.editedAt()).isNull();
+
+        // ...and it survives the plain TIMESTAMP column unchanged (compared at millisecond precision,
+        // which the column always keeps).
+        Comment readBack = service.find(added.id()).orElseThrow();
+        assertThat(readBack.createdAt().toEpochMilli()).isEqualTo(added.createdAt().toEpochMilli());
     }
 
     @Test
