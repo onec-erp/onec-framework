@@ -74,6 +74,18 @@ public final class UiMessages {
         d.put("tab.edit", "Edit {entity}");
         d.put("tab.duplicate", "Duplicate {entity}");
 
+        // Navigation. The home/dashboard and settings nav items (and their open-tab chips) fall back
+        // to these when no authored Page sets a title; an app overrides them via onno.ui.messages for
+        // a localized shell.
+        d.put("nav.dashboard", "Dashboard");
+        d.put("nav.settings", "Settings");
+
+        // Settings surface. The built-in Settings page (the @Constant editor, opt-in via
+        // onno.ui.settings.enabled) uses these for its title/subtitle when no authored "/settings"
+        // Page overrides them; its sidebar/tab label localizes via nav.settings.
+        d.put("settings.title", "Settings");
+        d.put("settings.subtitle", "App-wide configuration.");
+
         // App shell / account island.
         d.put("shell.signedInAs", "Signed in as");
         d.put("shell.theme", "Theme");

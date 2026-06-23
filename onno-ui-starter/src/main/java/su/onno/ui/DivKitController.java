@@ -223,7 +223,8 @@ public class DivKitController {
         UiLayout.Profile active = activeProfile(principal, profile);
         CurrentUserResolver.CurrentUser user = currentUserResolver.resolve(principal);
         String greeting = "Welcome back, " + user.displayName();
-        String defaultTitle = active.title() == null || active.title().isBlank() ? "Dashboard" : active.title();
+        String defaultTitle = active.title() == null || active.title().isBlank()
+                ? messages.get("nav.dashboard") : active.title();
 
         // An authored Page for "/" takes over the home surface; otherwise fall back
         // to the widget grid resolved from the layout/profile. A viewport-specific
@@ -271,13 +272,14 @@ public class DivKitController {
         if (page != null) {
             page.compose(pb);
         } else if (uiProperties.getSettings().isEnabled()) {
-            pb.title("Settings").subtitle("App-wide configuration.").constants();
+            pb.title(messages.get("settings.title")).subtitle(messages.get("settings.subtitle")).constants();
         } else {
             // Opt-in and not enabled, with no authored page → the surface doesn't exist.
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Settings page is not enabled");
         }
         return DivCard.of("onno-content",
-                renderPage(pb, "/settings", columns, p, principal, active.id(), "Settings", "App-wide configuration."));
+                renderPage(pb, "/settings", columns, p, principal, active.id(),
+                        messages.get("settings.title"), messages.get("settings.subtitle")));
     }
 
     /**
@@ -679,7 +681,7 @@ public class DivKitController {
         // it in the nav rather than leading every app with a blank Dashboard entry.
         if (hasDashboard(active, vp)) {
             nav.add(new ShellLayoutBuilder.NavSection(null, null, List.of(
-                    new ShellLayoutBuilder.NavItem("Dashboard", "onno://", "house", "/"))));
+                    new ShellLayoutBuilder.NavItem(homeNavLabel(active, vp), "onno://", "house", "/"))));
         }
         for (UiLayout.ResolvedSection section : layoutResolver.resolve(active)) {
             // Nav is opt-in (a Layout bean places what the sidebar shows), but a section can still
@@ -712,7 +714,7 @@ public class DivKitController {
         // /api/settings endpoints enforce the admin check regardless.
         if (uiProperties.getSettings().isEnabled() && access.roles(principal).contains("ADMIN")) {
             nav.add(new ShellLayoutBuilder.NavSection(null, null, List.of(
-                    new ShellLayoutBuilder.NavItem("Settings", "onno://settings", "settings", "/settings"))));
+                    new ShellLayoutBuilder.NavItem(messages.get("nav.settings"), "onno://settings", "settings", "/settings"))));
         }
         return nav;
     }
@@ -726,6 +728,27 @@ public class DivKitController {
     private boolean hasDashboard(UiLayout.Profile active, Viewport vp) {
         return pageResolver.resolve("/", active.id(), vp) != null
                 || !layoutResolver.resolveWidgets(active).isEmpty();
+    }
+
+    /**
+     * The label for the home/dashboard nav item — and, via the shell's path→title map, its
+     * open-tab chip (the client titles the "/" tab from this same nav label). An authored
+     * {@code "/"} {@link Page} that sets a title wins (apps already localize the dashboard via
+     * {@code b.title(...)}); otherwise the localizable {@code nav.dashboard} chrome string, which an
+     * app can override through {@code onno.ui.messages}. Never the bare English literal, so a
+     * non-English app's sidebar and tab read in its language.
+     */
+    private String homeNavLabel(UiLayout.Profile active, Viewport vp) {
+        Page page = pageResolver.resolve("/", active.id(), vp);
+        if (page != null) {
+            PageBuilder pb = new PageBuilder();
+            page.compose(pb);
+            String title = pb.title();
+            if (title != null && !title.isBlank()) {
+                return title;
+            }
+        }
+        return messages.get("nav.dashboard");
     }
 
     /**
