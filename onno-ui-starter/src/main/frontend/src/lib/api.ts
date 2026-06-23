@@ -201,6 +201,7 @@ export interface CommentView {
   body: string;
   /** The mentions in `body`, resolved live for the current viewer (empty when none/disabled). */
   mentions: CommentMention[];
+  /** ISO-8601 instant, zone-qualified ("…Z"); localize per viewer. `editedAt` is null until edited. */
   createdAt: string | null;
   editedAt: string | null;
   /** True when the current user authored this comment. */

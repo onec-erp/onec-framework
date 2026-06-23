@@ -4,7 +4,8 @@ import org.jdbi.v3.core.Jdbi;
 
 import su.onno.ui.SqlBind;
 
-import java.time.LocalDateTime;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,6 +18,11 @@ import java.util.UUID;
  *
  * <p>A thread is keyed by {@code (entity_type, entity_name, entity_id)}. Deletes are soft (the row
  * stays for audit with {@code _deleted = true}); reads filter them out.
+ *
+ * <p>Timestamps are {@link Instant}s. They go to and from the plain {@code TIMESTAMP} column through
+ * {@link java.sql.Timestamp} ({@code Timestamp.from(instant)} on write, {@code getTimestamp().toInstant()}
+ * on read), so the instant round-trips symmetrically regardless of the server's zone and no column
+ * migration is needed (#177).
  */
 public class CommentService {
 
@@ -65,7 +71,7 @@ public class CommentService {
     public Comment add(String entityType, String entityName, UUID entityId,
                        String authorId, String authorName, String body) {
         UUID id = UUID.randomUUID();
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
         UUID authorUuid = authorId == null ? null : UUID.fromString(authorId);
         jdbi.useHandle(h -> {
             var update = h.createUpdate("INSERT INTO " + TABLE +
@@ -78,7 +84,9 @@ public class CommentService {
                     .bind("entityId", entityId)
                     .bind("authorName", authorName)
                     .bind("body", body)
-                    .bind("createdAt", now);
+                    // Bind through java.sql.Timestamp (not the raw Instant) so write and read use the
+                    // same conversion and the instant round-trips through the plain TIMESTAMP column.
+                    .bind("createdAt", Timestamp.from(now));
             // An unlinked principal (e.g. an in-memory onno.auth.users login) has no record id, so
             // _author_id is null — bind it as a typed uuid null, not varchar, or Postgres rejects
             // the insert ("uuid but expression is of type character varying"). (#171, same as #163)
@@ -110,13 +118,13 @@ public class CommentService {
     private static Comment map(UUID id, String type, String name, UUID entityId,
                                java.sql.ResultSet rs) throws java.sql.SQLException {
         UUID authorId = rs.getObject("_author_id", UUID.class);
-        java.sql.Timestamp created = rs.getTimestamp("_created_at");
-        java.sql.Timestamp edited = rs.getTimestamp("_edited_at");
+        Timestamp created = rs.getTimestamp("_created_at");
+        Timestamp edited = rs.getTimestamp("_edited_at");
         return new Comment(id, type, name, entityId,
                 authorId == null ? null : authorId.toString(),
                 rs.getString("_author_name"),
                 rs.getString("_body"),
-                created == null ? null : created.toLocalDateTime(),
-                edited == null ? null : edited.toLocalDateTime());
+                created == null ? null : created.toInstant(),
+                edited == null ? null : edited.toInstant());
     }
 }
