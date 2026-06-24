@@ -10,13 +10,16 @@ import type { UiEvent } from "@/lib/types";
  * Seeded once from `GET /api/presence`, then kept current by the `presence` deltas on the shared
  * `onno:dataevent` SSE fan-out (divkit-view's single stream). Keyed by record id (a uuid, globally
  * unique) so the tab and rows need no name-matching; each entry also carries the route `kind`/`name`
- * for the sidebar's per-entity aggregation. Self is filtered out by the selectors via `you`.
+ * for the sidebar's per-entity aggregation. The selectors hide your own marker only on the route THIS
+ * tab is itself on (`myRouteId`) — so you never see yourself on the page you're looking at, but your
+ * other tabs/devices (on other routes) still show.
  */
 
 type Entry = { kind: string; name: string; viewers: PresenceViewer[] };
 
 let byId = new Map<string, Entry>();
 let you: string | null = null;
+let myRouteId: string | null = null;
 let started = false;
 const listeners = new Set<() => void>();
 
@@ -29,6 +32,31 @@ function subscribe(l: () => void): () => void {
 }
 function getSnapshot(): Map<string, Entry> {
   return byId;
+}
+
+/**
+ * Whether a viewer should be shown on a given record entry. Everyone shows EXCEPT yourself on the route
+ * THIS tab is itself present on ({@code myRouteId}) — so you never see your own marker on the page you're
+ * looking at, while your other tabs/devices (on other routes) and everyone else stay visible.
+ */
+function visible(entryId: string, v: PresenceViewer): boolean {
+  return !(you !== null && v.userId === you && entryId === myRouteId);
+}
+
+/** The store id a route path keys on — the record id for a record route, else the normalized path
+ *  (mirrors the server's routeIdentity), so a pane can mark which entry is "this tab's own". */
+function routeStoreId(path: string): string {
+  const seg = path.split("/").filter(Boolean);
+  if (seg.length >= 3 && (seg[0] === "catalogs" || seg[0] === "documents")) return seg[2];
+  return "/" + seg.join("/");
+}
+
+/** Record (or clear) which route this tab is itself present on, re-rendering the presence surfaces. */
+function setMyRoute(id: string | null) {
+  if (myRouteId === id) return;
+  myRouteId = id;
+  byId = new Map(byId); // new ref so useSyncExternalStore recomputes against the new myRouteId
+  emit();
 }
 
 // Mirror of the server's snake-casing, so a route name matches an entity name across cases.
@@ -71,41 +99,43 @@ export function startPresence() {
 
 const EMPTY: PresenceViewer[] = [];
 
-/** The other people viewing a specific record (excludes you). For the tab bar and list rows. */
+/** The people viewing a specific record — hides only your own marker when this is the route this tab is
+ *  on, so your other sessions still show. Tab bar + list rows. */
 export function useRecordViewers(id: string | null | undefined): PresenceViewer[] {
   const map = useSyncExternalStore(subscribe, getSnapshot);
   if (!id) return EMPTY;
   const entry = map.get(id);
   if (!entry) return EMPTY;
-  const others = entry.viewers.filter((v) => v.userId !== you);
-  return others.length ? others : EMPTY;
+  const out = entry.viewers.filter((v) => visible(id, v));
+  return out.length ? out : EMPTY;
 }
 
 /**
- * A by-id map of every record's other viewers (excludes you), for surfaces that render many records at
- * once and can't call a hook per row — the list looks up {@code map.get(rowId)}. Recomputed only when the
- * store changes.
+ * A by-id map of every record's viewers (your own marker hidden on the route this tab is on), for surfaces
+ * that render many records at once and can't call a hook per row — the list looks up {@code map.get(rowId)}.
+ * Recomputed only when the store changes.
  */
 export function useViewersById(): Map<string, PresenceViewer[]> {
   const map = useSyncExternalStore(subscribe, getSnapshot);
   const out = new Map<string, PresenceViewer[]>();
   for (const [id, entry] of map) {
-    const others = entry.viewers.filter((v) => v.userId !== you);
-    if (others.length) out.set(id, others);
+    const shown = entry.viewers.filter((v) => visible(id, v));
+    if (shown.length) out.set(id, shown);
   }
   return out;
 }
 
-/** The distinct other people viewing any record of one entity (excludes you). For the sidebar. */
+/** The distinct people viewing any record of one entity (your own marker hidden on the route this tab is
+ *  on, so your other sessions still show). For the sidebar. */
 export function useEntityViewers(kind: string, name: string): PresenceViewer[] {
   const map = useSyncExternalStore(subscribe, getSnapshot);
   const want = toSnake(name);
   const seen = new Set<string>();
   const out: PresenceViewer[] = [];
-  for (const entry of map.values()) {
+  for (const [id, entry] of map) {
     if (entry.kind !== kind || toSnake(entry.name) !== want) continue;
     for (const v of entry.viewers) {
-      if (v.userId !== you && !seen.has(v.userId)) {
+      if (visible(id, v) && !seen.has(v.userId)) {
         seen.add(v.userId);
         out.push(v);
       }
@@ -125,6 +155,10 @@ const HEARTBEAT_MS = 15_000;
 export function usePanePresence(path: string) {
   useEffect(() => {
     if (!path) return;
+    // Mark which store entry is "this tab's own", so the selectors hide your marker here (but not on
+    // your other tabs/devices, which are on other routes).
+    const myId = routeStoreId(path);
+    setMyRoute(myId);
     let active = true;
     api.presence(path, "enter").catch(() => {});
     const beat = window.setInterval(() => {
@@ -143,6 +177,7 @@ export function usePanePresence(path: string) {
       active = false;
       window.clearInterval(beat);
       window.removeEventListener("pagehide", onPageHide);
+      if (myRouteId === myId) setMyRoute(null);
       api.leavePresence(path);
     };
   }, [path]);
