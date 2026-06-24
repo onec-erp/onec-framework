@@ -22,7 +22,8 @@ import type { ContentAction } from "@/views/divkit-content";
 import { ICON_CUSTOM_COMPONENTS } from "@/lib/icon-bridge";
 import { NAV_PRESENCE_CUSTOM_COMPONENTS } from "@/lib/nav-presence-bridge";
 import { startPresence } from "@/lib/presence-store";
-import { PanePresence, TabPresence } from "@/components/presence-surfaces";
+import { TabPresence } from "@/components/presence-surfaces";
+import { usePanePresence } from "@/lib/presence-store";
 import "@divkitframework/divkit/dist/client.css";
 
 // The shell nav/account cards render lucide icons and the ambient sidebar presence dots as React islands.
@@ -305,6 +306,11 @@ export function DivKitView() {
   const [workspace, setWorkspace] = useState<Workspace>(initialWorkspace);
   const wsRef = useRef(workspace);
   wsRef.current = workspace;
+  // A single, always-mounted presence driver for the focused pane's route. Feeding it by prop (not a
+  // per-pane mounted component) means closing/opening/Esc-ing panes only changes its `path` — the hook
+  // never remounts, so the "this tab's own route" marker moves old→new without flashing through null
+  // (the self-dot no longer blinks on rapid pane churn).
+  usePanePresence((workspace.panes.find((p) => p.id === workspace.focused) ?? workspace.panes[0])?.activePath ?? "");
   // Right-click menu for a list row: screen position + the row's onno:// open url.
   const [rowMenu, setRowMenu] = useState<{ x: number; y: number; url: string } | null>(null);
   // Right-click menu for a workspace tab: screen position + the tab's route path.
@@ -1454,10 +1460,8 @@ export function DivKitView() {
             </div>
           )}
         </div>
-        {/* Invisible: marks ONLY the focused pane's active route present (enter/heartbeat/leave), so a
-            user shows on the one page they're actually on — not every open or split pane. Switching focus
-            unmounts this (leave) for the old pane and mounts it (enter) for the new one. */}
-        {focused && <PanePresence path={pane.activePath} />}
+        {/* Presence for the focused pane is driven once at the top of DivKitView (a single stable hook),
+            not per-pane — see usePanePresence(focused pane's activePath) there. */}
 
         {/* Every open tab stays mounted in its own scroll container; only the active
             one is shown. Keeping them alive preserves each tab's scroll position,
