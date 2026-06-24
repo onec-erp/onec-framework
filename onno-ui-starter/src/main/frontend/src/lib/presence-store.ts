@@ -130,9 +130,19 @@ export function usePanePresence(path: string) {
     const beat = window.setInterval(() => {
       if (active) api.presence(path, "heartbeat").catch(() => {});
     }, HEARTBEAT_MS);
+    // Closing the browser tab (or navigating the whole document away) does NOT run React cleanup, so the
+    // unmount-time leave below never fires — the viewer would linger until the server TTL reaps them.
+    // `pagehide` is the reliable teardown signal (tab close, navigation, bfcache); the keepalive leave
+    // request outlives the unloading document. TTL still backstops a crash / lost network.
+    const onPageHide = () => {
+      active = false;
+      api.leavePresence(path);
+    };
+    window.addEventListener("pagehide", onPageHide);
     return () => {
       active = false;
       window.clearInterval(beat);
+      window.removeEventListener("pagehide", onPageHide);
       api.leavePresence(path);
     };
   }, [path]);
