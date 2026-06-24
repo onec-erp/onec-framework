@@ -187,7 +187,10 @@ const HEARTBEAT_MS = 15_000;
  */
 export function usePanePresence(path: string) {
   useEffect(() => {
-    if (!path) return;
+    if (!path) {
+      setMyRoute(null); // no focused route → nothing is "this tab's own"
+      return;
+    }
     // Mark which store entry is "this tab's own", so the selectors hide your marker here (but not on
     // your other tabs/devices, which are on other routes).
     const myId = routeStoreId(path);
@@ -210,8 +213,9 @@ export function usePanePresence(path: string) {
       active = false;
       window.clearInterval(beat);
       window.removeEventListener("pagehide", onPageHide);
-      removeSelfFrom(myId); // drop self from the old route first, so un-marking it doesn't flash
-      if (myRouteId === myId) setMyRoute(null);
+      removeSelfFrom(myId); // optimistically drop self from the route we're leaving (no flash)
+      // Don't clear myRouteId here — on a path change the next effect sets the new route directly, so it
+      // never passes through null (the !path branch above clears it when there is genuinely no focused route).
       api.leavePresence(path);
     };
   }, [path]);
