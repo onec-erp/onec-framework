@@ -102,4 +102,16 @@ class UiAccessServiceRoleSetTest {
         assertThat(access.canReceiveEvent(Set.of("FINANCE"), "page", "/dashboard")).isTrue();
         assertThat(access.canReceiveEvent(Set.of(), "page", "/")).isTrue();
     }
+
+    @Test
+    void deliversWildcardChangeNudgesToAnySignedInViewer() {
+        UiAccessService access = withCatalog();
+        // ("changed","register","*") (and any "*"-named change event) is a non-specific "refetch"
+        // nudge carrying no entity name or row data — it must reach any authenticated subscriber so an
+        // open register/list live-refreshes after a post. Resolving "*" as an entity name used to
+        // deny-by-default and drop it for everyone, freezing open registers until a manual reload.
+        assertThat(access.canReceiveEvent(Set.of("FINANCE"), "register", "*")).isTrue();
+        assertThat(access.canReceiveEvent(Set.of(), "register", "*")).isTrue();
+        assertThat(access.canReceiveEvent(Set.of("RENTALS"), "document", "*")).isTrue();
+    }
 }
