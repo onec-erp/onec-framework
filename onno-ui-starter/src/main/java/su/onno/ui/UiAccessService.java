@@ -129,6 +129,16 @@ public class UiAccessService {
      * {@code presence} sentinel is authorized by the publisher, which maps the record kind itself.)
      */
     public boolean canReceiveEvent(Set<String> roles, String entityType, String entityName) {
+        // A wildcard ("*") change event names no specific entity and carries no row data — it is a
+        // "something of this type changed, refetch" nudge. Document posting emits
+        // ("changed","register","*") so any open register surface refetches; the rows themselves are
+        // always re-read through the RBAC-gated feed, so the bare nudge is safe for any authenticated
+        // subscriber. Without this it resolved "*" as a (non-existent) entity name and fell to
+        // deny-by-default, dropping the event for everyone — which is why an open register never
+        // live-refreshed after a post (the balance only updated on a manual reload / re-navigation).
+        if ("*".equals(entityName)) {
+            return true;
+        }
         return switch (entityType == null ? "" : entityType) {
             case "catalog", "document", "register" -> canRead(roles, entityType, entityName);
             case "comment" -> canRead(roles, "catalog", entityName) || canRead(roles, "document", entityName);
