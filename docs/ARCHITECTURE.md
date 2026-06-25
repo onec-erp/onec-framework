@@ -87,7 +87,8 @@ In brief:
 - **`@InformationRegister`** — facts by dimension over time, `periodicity = NONE|DAY|MONTH|QUARTER|YEAR`;
   rows extend `InformationRecord`.
 - **`@Enumeration`** (on a Java `enum`; `title` for the type's display name, `@EnumLabel` on a
-  constant for its localized value label — both fall back to the name), **`@Constant`** (singleton
+  constant for its localized value label — both fall back to the name — plus an optional
+  `@EnumLabel(color="#…")` that renders the value as a colored status pill), **`@Constant`** (singleton
   setting), **`@ScheduledJob`**
   (`cron`) / `@Scheduled` background jobs, **`@DomainEvent`** (outbox), **`@AccessControl`**
   (`readRoles`/`writeRoles`), **`@Attribute`** (`required`, `length`, `precision`/`scale`, `secret`,

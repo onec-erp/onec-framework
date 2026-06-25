@@ -16,11 +16,17 @@ import java.lang.annotation.Target;
  * {@code label} of each entry in an attribute's {@code enumValues} metadata, and the form dropdown.
  * When absent (or empty), the display falls back to the constant name.
  *
+ * <p>An optional {@link #color()} paints the value as a colored pill — a status chip the colour of
+ * the spreadsheet cell it replaces — in list cells, the form dropdown, and the detail view. It rides
+ * the read API as {@code {column}_color} (next to {@code {column}_display}) and the {@code color} of
+ * each {@code enumValues} entry; the client derives a readable (dark/light) text colour from it. When
+ * absent the value renders as plain text, exactly as before.
+ *
  * <pre>{@code
  * @Enumeration(name = "OrderStatuses", title = "Статусы заказов")
  * public enum OrderStatus {
- *     @EnumLabel("Новый") NEW,
- *     @EnumLabel("Отгружен") SHIPPED
+ *     @EnumLabel(value = "Новый", color = "#F4C7C3") NEW,
+ *     @EnumLabel(value = "Отгружен", color = "#0B8043") SHIPPED
  * }
  * }</pre>
  */
@@ -29,4 +35,10 @@ import java.lang.annotation.Target;
 public @interface EnumLabel {
 
     String value();
+
+    /**
+     * Optional badge colour for this value, as a CSS hex string ({@code "#RRGGBB"} or {@code "#RGB"}).
+     * Drives a colored status pill wherever the value is shown. Empty (the default) renders plain text.
+     */
+    String color() default "";
 }

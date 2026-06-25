@@ -328,6 +328,11 @@ public class ResolvedMetadataService {
                         Map<String, Object> vm = new LinkedHashMap<>();
                         vm.put("name", v.name());
                         vm.put("label", v.label());
+                        // Badge colour for a status pill in the form dropdown / detail view; omitted
+                        // when the value declares no @EnumLabel(color = …), so it reads as plain text.
+                        if (!v.color().isEmpty()) {
+                            vm.put("color", v.color());
+                        }
                         vm.put("id", v.id().toString());
                         return vm;
                     }).toList());

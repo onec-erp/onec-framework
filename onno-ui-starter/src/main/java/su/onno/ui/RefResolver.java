@@ -9,7 +9,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Resolves Ref UUID columns and Enum UUID columns to human-readable display values.
- * Adds "{columnName}_display" and "{columnName}_ref" keys to each row map.
+ * Adds "{columnName}_display" and "{columnName}_ref" keys to each row map, plus
+ * "{columnName}_color" for an enum value that declares an {@code @EnumLabel(color = …)} badge colour.
  *
  * <p>Descriptor lookups (logical name → catalog/document, enum class → enumeration,
  * enum id → display name) are cached: the registry never changes after startup
@@ -21,7 +22,10 @@ public class RefResolver {
     private final Jdbi jdbi;
     private final ConcurrentHashMap<String, Optional<CatalogDescriptor>> catalogsByName = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Optional<DocumentDescriptor>> documentsByName = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Class<?>, Map<String, String>> enumDisplayNames = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Class<?>, Map<String, EnumView>> enumDisplayNames = new ConcurrentHashMap<>();
+
+    /** A resolved enum value's display label and optional badge colour (empty when uncoloured). */
+    private record EnumView(String label, String color) {}
 
     public RefResolver(MetadataRegistry registry, Jdbi jdbi) {
         this.registry = registry;
@@ -162,24 +166,28 @@ public class RefResolver {
     private record ResolvedRef(String display, String code, String avatarUrl) {}
 
     private void resolveEnumColumn(List<Map<String, Object>> rows, AttributeDescriptor attr) {
-        Map<String, String> idToLabel = enumDisplayNames.computeIfAbsent(attr.javaType(), type -> {
+        Map<String, EnumView> idToView = enumDisplayNames.computeIfAbsent(attr.javaType(), type -> {
             EnumerationDescriptor enumDesc = registry.allEnumerations().stream()
                     .filter(e -> e.javaClass().equals(type))
                     .findFirst().orElse(null);
             if (enumDesc == null) return Map.of();
-            Map<String, String> labels = new HashMap<>();
+            Map<String, EnumView> views = new HashMap<>();
             for (EnumerationValueDescriptor v : enumDesc.values()) {
-                labels.put(v.id().toString(), v.label());
+                views.put(v.id().toString(), new EnumView(v.label(), v.color()));
             }
-            return Map.copyOf(labels);
+            return Map.copyOf(views);
         });
-        if (idToLabel.isEmpty()) return;
+        if (idToView.isEmpty()) return;
 
         for (Map<String, Object> row : rows) {
             Object val = value(row, attr.columnName());
             if (val != null) {
-                String label = idToLabel.get(val.toString());
-                row.put(attr.columnName() + "_display", label != null ? label : val.toString());
+                EnumView view = idToView.get(val.toString());
+                row.put(attr.columnName() + "_display", view != null ? view.label() : val.toString());
+                // A colour rides alongside _display so list/detail cells can paint a status pill.
+                if (view != null && !view.color().isEmpty()) {
+                    row.put(attr.columnName() + "_color", view.color());
+                }
             }
         }
     }

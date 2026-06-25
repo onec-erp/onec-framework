@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { Check, CircleCheck, Plus, Trash2, X } from "lucide-react";
 import type { AttributeMeta, EntityRecord, RelatedListMeta, SystemColumnMeta, TabularSectionMeta } from "@/lib/types";
 import { api, ApiError } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, enumPillStyle } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HintIcon } from "@/components/ui/hint-icon";
@@ -662,11 +662,26 @@ function AttrControl({
           <SelectValue placeholder={t("form.select", { name: attr.displayName })} />
         </SelectTrigger>
         <SelectContent>
-          {attr.enumValues.map((ev) => (
-            <SelectItem key={ev.id} value={ev.id}>
-              {ev.label ?? ev.name}
-            </SelectItem>
-          ))}
+          {attr.enumValues.map((ev) => {
+            // A coloured value (from @EnumLabel(color = …)) gets a dot matching its list pill, shown
+            // in the option and — since Radix mirrors the chosen item — in the closed trigger too.
+            const pill = enumPillStyle(ev.color);
+            return (
+              <SelectItem key={ev.id} value={ev.id}>
+                {pill ? (
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="size-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: pill.backgroundColor }}
+                    />
+                    {ev.label ?? ev.name}
+                  </span>
+                ) : (
+                  (ev.label ?? ev.name)
+                )}
+              </SelectItem>
+            );
+          })}
         </SelectContent>
       </Select>
     );

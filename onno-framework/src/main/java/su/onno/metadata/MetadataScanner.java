@@ -171,7 +171,8 @@ public class MetadataScanner {
             Enum<?> enumValue = (Enum<?>) constants[i];
             UUID id = UUID.nameUUIDFromBytes(
                     (clazz.getName() + "." + enumValue.name()).getBytes(StandardCharsets.UTF_8));
-            values.add(new EnumerationValueDescriptor(enumValue.name(), enumLabel(clazz, enumValue), id, i));
+            values.add(new EnumerationValueDescriptor(
+                    enumValue.name(), enumLabel(clazz, enumValue), enumColor(clazz, enumValue), id, i));
         }
 
         return new EnumerationDescriptor(
@@ -193,6 +194,23 @@ public class MetadataScanner {
             // unreachable for a real enum constant; fall through to the name
         }
         return value.name();
+    }
+
+    /**
+     * Badge colour for an enum constant: the {@code @EnumLabel(color = …)} value when present and
+     * non-empty, otherwise {@code ""} (the value renders as plain text). Like {@link #enumLabel}, the
+     * constant's field always exists, so the lookup never legitimately misses.
+     */
+    private static String enumColor(Class<?> enumClass, Enum<?> value) {
+        try {
+            EnumLabel label = enumClass.getField(value.name()).getAnnotation(EnumLabel.class);
+            if (label != null) {
+                return label.color();
+            }
+        } catch (NoSuchFieldException ignored) {
+            // unreachable for a real enum constant; fall through to no colour
+        }
+        return "";
     }
 
     public InformationRegisterDescriptor scanInformationRegister(Class<?> clazz) {
