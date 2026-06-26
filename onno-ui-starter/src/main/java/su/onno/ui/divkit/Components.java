@@ -375,6 +375,44 @@ final class Components {
     }
 
     /**
+     * A detail field row whose value is a coloured status pill — an enum value declaring
+     * {@code @EnumLabel(color = …)}. Label on the left; a {@link #badge} of the value on the right,
+     * tinted to {@code bg} with a readable dark/light text colour, hugged to its content (left-aligned
+     * in the value column) rather than stretched across it.
+     */
+    static Map<String, Object> pillFieldRow(String label, String value, String bg, String hint, Palette p) {
+        Map<String, Object> pill = badge(value, readableTextColor(bg), bg);
+        Div.wrapWidth(pill);
+        Map<String, Object> row = Div.horizontal(List.of(
+                labelCell(label, hint, p),
+                Div.weight(Div.horizontal(List.of(pill)), 3)));
+        Div.pad(row, 7, 0);
+        return row;
+    }
+
+    /**
+     * Black or white, whichever reads better on the given {@code #RGB}/{@code #RRGGBB} background
+     * (sRGB perceived luminance) — the server-side mirror of the frontend's {@code enumPillStyle}.
+     * Falls back to dark text for an unparseable colour.
+     */
+    static String readableTextColor(String bg) {
+        String hex = bg.startsWith("#") ? bg.substring(1) : bg;
+        if (hex.length() == 3) {
+            hex = "" + hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1)
+                    + hex.charAt(2) + hex.charAt(2);
+        }
+        try {
+            int r = Integer.parseInt(hex.substring(0, 2), 16);
+            int g = Integer.parseInt(hex.substring(2, 4), 16);
+            int b = Integer.parseInt(hex.substring(4, 6), 16);
+            double luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+            return luminance > 0.6 ? "#1f2937" : "#ffffff";
+        } catch (RuntimeException e) {
+            return "#1f2937";
+        }
+    }
+
+    /**
      * A detail field row whose value links to another record (a ref attribute): the label on
      * the left, the resolved display name on the right rendered as a tappable hyperlink —
      * primary color, underlined — carrying an {@code onno://} action that opens the referenced
