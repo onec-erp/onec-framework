@@ -95,4 +95,15 @@ class EnumerationMetadataScannerTest {
         assertThat(unlabelled.name()).isEqualTo("COMPLETED");
         assertThat(unlabelled.label()).isEqualTo("COMPLETED");
     }
+
+    @Test
+    void scanEnumeration_enumLabelColor_isCapturedAndEmptyWhenAbsent() {
+        EnumerationDescriptor desc = scanner.scanEnumeration(TestLabeledStatus.class);
+
+        // A value with @EnumLabel(color = …) carries the hex; a labelled-but-uncoloured value and an
+        // unlabelled value both carry "" so the UI falls back to plain text.
+        assertThat(desc.values().get(0).color()).isEqualTo("#F4C7C3"); // NEW
+        assertThat(desc.values().get(1).color()).isEmpty();            // IN_PROGRESS (labelled, no colour)
+        assertThat(desc.values().get(2).color()).isEmpty();            // COMPLETED (unlabelled)
+    }
 }

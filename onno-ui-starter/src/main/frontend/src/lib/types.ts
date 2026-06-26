@@ -12,6 +12,11 @@ export interface EnumValue {
    * older server payload (no label) still type-checks — callers fall back to name.
    */
   label?: string;
+  /**
+   * Optional badge colour (CSS hex, from @EnumLabel(color = …)). When present the value renders as a
+   * colored status pill — in the form dropdown and detail view — instead of plain text.
+   */
+  color?: string;
   id: string;
 }
 

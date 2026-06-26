@@ -42,6 +42,29 @@ export function toSnakeCase(str: string): string {
     .toLowerCase();
 }
 
+/**
+ * Resolve a status-pill style from an `@EnumLabel(color = …)` hex (`#RGB` or `#RRGGBB`). Returns an
+ * inline style carrying the colour as the background and a readable text colour derived from its
+ * luminance — near-black on a light pill, white on a dark one — or `null` when the input isn't a
+ * usable hex, so the caller falls back to plain text. Kept dependency-free (no theme tokens) because
+ * the colour is an authored, fixed brand/spreadsheet colour, not a themeable surface.
+ */
+export function enumPillStyle(
+  color: string | undefined | null,
+): { backgroundColor: string; color: string } | null {
+  if (!color) return null;
+  const match = /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(color.trim());
+  if (!match) return null;
+  let hex = match[1].toLowerCase();
+  if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  // Perceived luminance (sRGB weights, 0–1): a light pill takes dark text, a dark pill white.
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return { backgroundColor: `#${hex}`, color: luminance > 0.6 ? "#1f2937" : "#ffffff" };
+}
+
 export function displayValue(attr: AttributeMeta, raw: unknown, row?: Record<string, unknown>): string {
   // Secrets are write-only: the server returns a "set" sentinel or null, never the value.
   if (attr.secret) {

@@ -57,7 +57,9 @@ table renames), `numberLength=11`, `autoNumber=true`, `numberPrefix=""`, `contex
 Persisted as a reference table; each value gets a stable UUID. Annotate a constant with
 `@EnumLabel("…")` to give it a human/localized display label (surfaced in `{col}_display`, the
 `enumValues[].label` metadata, and the dropdown) without renaming the constant; unlabelled constants
-display as their name.
+display as their name. `@EnumLabel(value="…", color="#RRGGBB")` additionally paints the value as a
+colored status pill in list cells, the dropdown, and the detail view — the colour rides the read API
+as `{col}_color` and `enumValues[].color`; an uncoloured value renders as plain text.
 
 ### `@Constant` (on a plain class with one value field)
 `name` (required).

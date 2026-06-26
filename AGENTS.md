@@ -343,17 +343,21 @@ public enum OrderStatus {
 
 Give the type a display `title` and each value a human/localized label with `@EnumLabel` — surfaced
 in list cells, the dropdown, and `{col}_display` — **without** renaming the constants (their names
-key the stored UUIDs and any importers/filters that map to them):
+key the stored UUIDs and any importers/filters that map to them). An optional `color` paints the
+value as a **status pill** (the colour of the spreadsheet cell it replaces) in list cells, the form
+dropdown, and the detail view; it rides the read API as `{col}_color` and `enumValues[].color`, and
+the client derives a readable dark/light text colour from it:
 
 ```java
 @Enumeration(name = "Order Statuses", title = "Статусы заказов")
 public enum OrderStatus {
-    @EnumLabel("Новый") NEW,
-    @EnumLabel("Отгружен") SHIPPED
+    @EnumLabel(value = "Новый", color = "#F4C7C3") NEW,
+    @EnumLabel(value = "Отгружен", color = "#0B8043") SHIPPED
 }
 ```
 
-An unlabelled constant displays as its name, so adding `@EnumLabel` is incremental.
+An unlabelled constant displays as its name, and an uncoloured value renders as plain text, so adding
+`@EnumLabel`/`color` is incremental.
 
 ### Constants
 

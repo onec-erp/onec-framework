@@ -18,7 +18,7 @@ import { DatePicker } from "@/components/date-picker";
 import { HintIcon } from "@/components/ui/hint-icon";
 import { DynamicLucide } from "@/lib/icon-bridge";
 import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, enumPillStyle } from "@/lib/utils";
 import { applyFormat, isImageWidget, isAvatarWidget, looksLikeImageUrl } from "@/lib/cell-format";
 import type { EntityRecord, UiEvent } from "@/lib/types";
 import { useMessages } from "@/providers/messages-provider";
@@ -184,6 +184,21 @@ function ListCell({ row, col }: { row: EntityRecord; col: ListColumn }) {
           className="size-6 shrink-0 rounded-full border border-border object-cover"
         />
         <span className="truncate text-foreground">{displayCellValue(raw, col)}</span>
+      </span>
+    );
+  }
+  // A status-coloured enum value: the @EnumLabel(color = …) hex rides as {col}_color (RefResolver),
+  // so paint the label as a pill the colour of the spreadsheet cell it replaces.
+  const pill = enumPillStyle(row[`${col.columnName}_color`] as string | undefined);
+  if (pill && raw) {
+    return (
+      <span className="flex min-w-0">
+        <span
+          className="truncate rounded-full px-2 py-0.5 text-xs font-medium"
+          style={pill}
+        >
+          {displayCellValue(raw, col)}
+        </span>
       </span>
     );
   }

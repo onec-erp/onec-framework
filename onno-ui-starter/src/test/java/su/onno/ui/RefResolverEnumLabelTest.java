@@ -30,7 +30,7 @@ class RefResolverEnumLabelTest {
 
     @Enumeration(name = "RrStatuses")
     enum Status {
-        @EnumLabel("Новый") NEW,
+        @EnumLabel(value = "Новый", color = "#F4C7C3") NEW,
         SHIPPED
     }
 
@@ -67,5 +67,10 @@ class RefResolverEnumLabelTest {
 
         assertThat(labelled.get(statusAttr.columnName() + "_display")).isEqualTo("Новый");
         assertThat(unlabelled.get(statusAttr.columnName() + "_display")).isEqualTo("SHIPPED");
+
+        // A coloured value rides its @EnumLabel(color = …) hex as {col}_color; an uncoloured value
+        // adds no colour key at all (so the cell falls back to plain text).
+        assertThat(labelled.get(statusAttr.columnName() + "_color")).isEqualTo("#F4C7C3");
+        assertThat(unlabelled).doesNotContainKey(statusAttr.columnName() + "_color");
     }
 }

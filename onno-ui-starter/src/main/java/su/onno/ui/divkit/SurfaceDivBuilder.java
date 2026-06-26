@@ -789,6 +789,12 @@ public final class SurfaceDivBuilder {
         if (refUrl != null) {
             return Components.refFieldRow(label, cell(a, row), refUrl, hint, p);
         }
+        // An enum value with an @EnumLabel(color = …) rides as {col}_color (RefResolver) — render it
+        // as a coloured status pill, matching the list cell and the form dropdown's colour.
+        String color = str(row.get(str(a.get("columnName")) + "_color"));
+        if (!color.isBlank()) {
+            return Components.pillFieldRow(label, cell(a, row), color, hint, p);
+        }
         return Components.fieldRow(label, cell(a, row), hint, p);
     }
 

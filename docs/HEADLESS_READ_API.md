@@ -88,6 +88,8 @@ two sibling keys so the client need not make a second call:
 - `{column}_display` — a human-readable label (catalog description or code; for an enum, the value's
   `@EnumLabel`, falling back to the constant name when unlabelled).
 - `{column}_ref` — an object `{ "display", "code", "avatarUrl" }` (catalogs) for richer rendering.
+- `{column}_color` — for an enum value declaring `@EnumLabel(color="#…")`, its badge colour (a CSS
+  hex string), so the client can paint a status pill. Absent when the value has no colour.
 
 The raw `{column}` value remains the UUID, so writers can round-trip it unchanged.
 
